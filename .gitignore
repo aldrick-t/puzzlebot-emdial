@@ -1,0 +1,31 @@
+# ROS2 build and install directories
+/build/
+/install/
+/log/
+
+# Colcon metadata
+.colcon/
+
+# ROS2 workspace files
+*.pyc
+*.swp
+*.bak
+*.tmp
+.DS_Store
+*.log
+*.db
+
+# IDE specific files
+.idea/
+.vscode/
+*.iml
+
+# Other
+*.out
+*.o
+*.a
+*.so
+*.swp
+*.swo
+*.~undo-tree~
+
