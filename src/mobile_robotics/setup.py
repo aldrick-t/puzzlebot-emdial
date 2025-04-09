@@ -22,6 +22,8 @@ setup(
         'console_scripts': [
             'test_node = mobile_robotics.test_node:main',
             'move_fwd = mobile_robotics.move_fwd:main',
+            'open_loop_ctrl = mobile_robotics.open_loop_ctrl:main',
+            'move_fwd_dist = mobile_robotics.move_fwd_dist:main',
         ],
     },
 )
