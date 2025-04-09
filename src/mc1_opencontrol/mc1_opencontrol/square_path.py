@@ -17,11 +17,11 @@ class OpenLoopCtrl(Node):
         # Default parameters
         self.square_side = 2.0  # meters
         self.turn_angle = np.pi / 2  # 90 degrees per corner
-        self.robust_margin = 0.9  # 10% buffer for robustness
+        self.robust_margin = 0.9 # 10% buffer for robustness
 
         # User-defined input: either speed or time
         self.user_speed = None  # m/s or None
-        self.user_time = 60 # seconds or None
+        self.user_time = 50 # seconds or None
 
         # Auto-tune parameters
         self.auto_tune()
@@ -47,14 +47,14 @@ class OpenLoopCtrl(Node):
             self.linear_speed = (self.square_side / (travel_time / 4)) * self.robust_margin
             self.forward_time = self.square_side / self.linear_speed
 
-            self.angular_speed = self.turn_angle / (rotate_time / 4) * self.robust_margin
+            self.angular_speed = (self.turn_angle / (rotate_time / 4)) * self.robust_margin
             self.rotate_time = self.turn_angle / self.angular_speed
             self.get_logger().info(f"Calculated angular speed: {self.angular_speed:.2f} rad/s, rotate time: {self.rotate_time:.2f} s")
         else:
             self.linear_speed = self.user_speed * self.robust_margin
             self.forward_time = self.square_side / self.linear_speed
 
-            self.angular_speed = 0.5  # default
+            self.angular_speed = 0.3  # default
             self.rotate_time = self.turn_angle / self.angular_speed
 
 
