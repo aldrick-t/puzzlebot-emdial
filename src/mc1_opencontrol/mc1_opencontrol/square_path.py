@@ -17,11 +17,11 @@ class OpenLoopCtrl(Node):
         # Default parameters
         self.square_side = 2.0  # meters
         self.turn_angle = np.pi / 2  # 90 degrees per corner
-        self.robust_margin = 1.1  # 10% buffer for robustness
+        self.robust_margin = 0.9  # 10% buffer for robustness
 
         # User-defined input: either speed or time
         self.user_speed = None  # m/s or None
-        self.user_time = 30 # seconds or None
+        self.user_time = 60 # seconds or None
 
         # Auto-tune parameters
         self.auto_tune()
@@ -34,16 +34,15 @@ class OpenLoopCtrl(Node):
         self.timer_period = 0.1  # 10 Hz
         self.timer = self.create_timer(self.timer_period, self.control_loop)
 
-        self.get_logger().info('Robust Open Loop Controller Initialized!')
+        self.get_logger().info('Open Loop Controller Initialized!')
 
     def auto_tune(self):
         # User defines time or speed
-        #self.robust_margin = 1.1  # Apply only to linear movement
 
         if self.user_time:
             # Distribute time
-            travel_time = self.user_time * 0.6
-            rotate_time = self.user_time * 0.4
+            travel_time = self.user_time * 0.7
+            rotate_time = self.user_time * 0.3
 
             self.linear_speed = (self.square_side / (travel_time / 4)) * self.robust_margin
             self.forward_time = self.square_side / self.linear_speed
