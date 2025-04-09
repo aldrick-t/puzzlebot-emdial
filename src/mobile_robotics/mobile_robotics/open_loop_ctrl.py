@@ -26,8 +26,8 @@ class OpenLoopCtrl(Node):
         self.angular_speed = 0.3  # rad/s
 
         # Define durations (seconds)
-        self.forward_time = 2.0 / self.linear_speed   # Time to move 2m
-        self.rotate_time = np.pi / self.angular_speed  # Time to rotate 180 deg
+        self.forward_time = 1.0 / self.linear_speed * 0.9  # Time to move 2m
+        self.rotate_time = np.pi / self.angular_speed * 0.9 # Time to rotate 180 deg
         self.backward_time = self.forward_time
 
         # Timer to update state machine
@@ -59,7 +59,7 @@ class OpenLoopCtrl(Node):
             cmd.angular.z = self.angular_speed
             self.get_logger().info('Rotating 180 degrees...')
             if elapsed_time >= self.rotate_time:
-                self.state = 2
+                self.state = 3
                 self.state_start_time = now
                 self.get_logger().info('Finished rotation. Moving backward...')
 
