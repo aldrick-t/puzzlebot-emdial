@@ -63,12 +63,15 @@ class OpenLoopCtrl(Node):
         now = self.get_clock().now()
         elapsed_time = (now - self.state_start_time).nanoseconds * 1e-9
 
+        self.get_logger().info(f"Start: {self.state_start_time.nanoseconds * 1e-9}, NOW: {now.nanoseconds * 1e-9:.2f}s")
+        self.get_logger().info(f"State: {self.state}, Elapsed: {elapsed_time:.2f}s")
+
         cmd = Twist()
 
         if self.state == 0:
             # Move forward
             cmd.linear.x = self.linear_speed
-            self.get_logger().info(f"[SIDE {self.leg_counter + 1}/4] → Moving forward: {elapsed_time:.2f}s / {self.forward_time:.2f}s")
+            #self.get_logger().info(f"[SIDE {self.leg_counter + 1}/4] → Moving forward: {elapsed_time:.2f}s / {self.forward_time:.2f}s")
             if elapsed_time >= self.forward_time:
                 self.state = 1
                 self.state_start_time = now
@@ -77,7 +80,7 @@ class OpenLoopCtrl(Node):
         elif self.state == 1:
             # Turn 90 degrees
             cmd.angular.z = self.angular_speed
-            self.get_logger().info(f"[TURN {self.leg_counter + 1}/4] ↻ Rotating: {elapsed_time:.2f}s / {self.rotate_time:.2f}s")
+            #self.get_logger().info(f"[TURN {self.leg_counter + 1}/4] ↻ Rotating: {elapsed_time:.2f}s / {self.rotate_time:.2f}s")
             self.get_logger().info(f"Current angular speed: {cmd.angular.z:.2f} rad/s")
             if elapsed_time >= self.rotate_time:
                 self.leg_counter += 1
