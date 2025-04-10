@@ -7,5 +7,5 @@ square_path:
     # user_time: 40.0
 
     # OPTION 2: Use speeds (comment out time)
-    user_linear_speed: 0.2
-    user_angular_speed: 0.3
+    user_linear_speed: 0.4
+    user_angular_speed: 0.6

@@ -13,9 +13,9 @@ class SquarePath(Node):
         # Declare parameters
         self.square_side = self.declare_parameter('square_side', 2.0).get_parameter_value().double_value
         self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.user_time = self.declare_parameter('user_time', None).get_parameter_value().double_value
-        self.user_linear_speed = self.declare_parameter('user_linear_speed', None).get_parameter_value().double_value
-        self.user_angular_speed = self.declare_parameter('user_angular_speed', None).get_parameter_value().double_value
+        self.user_time = self.declare_parameter('user_time', 60).get_parameter_value().double_value
+        self.user_linear_speed = self.declare_parameter('user_linear_speed', 0.3).get_parameter_value().double_value
+        self.user_angular_speed = self.declare_parameter('user_angular_speed', 0.3).get_parameter_value().double_value
 
         self.turn_angle = np.pi / 2  # 90 degrees
 
