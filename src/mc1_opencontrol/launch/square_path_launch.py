@@ -11,14 +11,14 @@ def generate_launch_description():
     config = os.path.join(
         package_directory,
         'config',
-        'params.yaml'
+        'params_square.yaml'
     )
 
     square_path = Node(
             package='mc1_opencontrol',
             executable='square_path',
             name='square_path',
-            parameters=['params.yaml']
+            parameters=[config]
         )
 
     return LaunchDescription([
