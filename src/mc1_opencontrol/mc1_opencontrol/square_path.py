@@ -40,8 +40,8 @@ class SquarePath(Node):
 
     def auto_tune(self):
         if self.user_time:
-            travel_time = self.user_time * 0.7
-            rotate_time = self.user_time * 0.3
+            travel_time = self.user_time * 0.9
+            rotate_time = self.user_time * 0.15
 
             self.linear_speed = (self.square_side / (travel_time / 4)) * self.robust_margin
             self.forward_time = self.square_side / self.linear_speed
