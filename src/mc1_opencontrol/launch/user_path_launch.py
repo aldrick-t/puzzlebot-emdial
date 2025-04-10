@@ -25,7 +25,7 @@ def generate_launch_description():
             package='mc1_opencontrol',
             executable='user_path',
             name='user_path',
-            parameters=[{'use_sim_time': True}],
+            parameters=[{'use_sim_time': True}]
         )
 
     return LaunchDescription([
