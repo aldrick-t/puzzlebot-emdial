@@ -6,7 +6,7 @@ from std_msgs.msg import Float32MultiArray, Empty
 class PathGenerator(Node):
     def __init__(self):
         super().__init__('path_generator')
-        # Declare parameters
+        # Declare parameters.
         self.declare_parameter('path_mode', 'coordinate')
         # Use a nonempty default so that the parameter type is clearly DOUBLE_ARRAY.
         self.declare_parameter('path_points', [0.0, 0.0, 0.0])
@@ -16,7 +16,7 @@ class PathGenerator(Node):
         self.points_flat = self.get_parameter('path_points').value
         self.robust_margin = self.get_parameter('robust_margin').value
 
-        expected_elements = 3  # For both coordinate ([x, y, t]) and velocity ([v, w, t]) modes.
+        expected_elements = 3  # For coordinate ([x,y,t]) or velocity ([v,w,t]) modes.
         if len(self.points_flat) % expected_elements != 0:
             self.get_logger().error("The number of elements in 'path_points' is not a multiple of {}.".format(expected_elements))
             rclpy.shutdown()
@@ -24,13 +24,18 @@ class PathGenerator(Node):
         self.num_points = len(self.points_flat) // expected_elements
         self.current_index = 0
 
-        # Publisher: publishes pose messages on /pose.
+        # Publisher for pose messages on /pose.
         self.pose_pub = self.create_publisher(Float32MultiArray, '/pose', 10)
         # Subscriber: listens for trigger messages on /next_point.
         self.trigger_sub = self.create_subscription(Empty, '/next_point', self.trigger_callback, 10)
 
         self.get_logger().info("PathGenerator initialized.")
-        # Immediately publish the first pose if available.
+
+        # Wait until a subscriber is connected before publishing the first point.
+        self.get_logger().info("Waiting for a subscriber on /pose...")
+        while self.pose_pub.get_subscription_count() < 1:
+            rclpy.spin_once(self, timeout_sec=0.1)
+        self.get_logger().info("Subscriber detected. Publishing initial point.")
         self.publish_point(initial=True)
 
     def publish_point(self, initial=False):
@@ -61,7 +66,7 @@ class PathGenerator(Node):
         self.current_index += 1
 
     def trigger_callback(self, msg):
-        # When a trigger message is received, publish the next point if available.
+        # On receiving a trigger, publish the next point.
         self.publish_point()
 
 def main(args=None):

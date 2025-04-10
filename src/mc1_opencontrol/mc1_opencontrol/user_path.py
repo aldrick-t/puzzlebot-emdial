@@ -19,28 +19,26 @@ class OpenLoopController(Node):
         self.declare_parameter('robust_margin', 0.9)
         self.robust_margin = self.get_parameter('robust_margin').value
 
-        # Subscription for pose messages from the path generator.
+        # Subscribe to pose messages from the path generator.
         self.pose_sub = self.create_subscription(
             Float32MultiArray,
             '/pose',
             self.pose_callback,
             10)
 
-        # Publisher for cmd_vel (to command robot speeds).
+        # Publisher for /cmd_vel to command robot speeds.
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
-        # Publisher to trigger the next pose from path_generator.
+        # Publisher to trigger the next pose.
         self.next_pub = self.create_publisher(Empty, '/next_point', 10)
 
-        # Robot's current pose (assumed known or estimated)
+        # Robot's current estimated pose.
         self.current_x = 0.0
         self.current_y = 0.0
         self.current_theta = 0.0
 
         # State variables for the state machine.
-        # For coordinate mode: states are "idle", "linear", "rotate".
-        # For velocity mode: state "velocity".
-        self.state = "idle"
-        self.current_target = None  # Dictionary to store target information.
+        self.state = "idle"   # States: "idle", "linear", "rotate", or "velocity"
+        self.current_target = None  # Dict to store target info.
         self.state_start_time = None
 
         self.timer = self.create_timer(0.1, self.control_loop)
@@ -62,18 +60,17 @@ class OpenLoopController(Node):
             if t_duration <= 0:
                 self.get_logger().error("t_duration must be > 0.")
                 return
-            # Compute the linear speed (distance divided by t_duration).
+            # Compute linear speed.
             linear_speed = (distance / t_duration) * self.robust_margin
             linear_speed = min(linear_speed, MAX_LINEAR)
             # Compute desired heading.
             desired_theta = math.atan2(dy, dx)
             dtheta = desired_theta - self.current_theta
             dtheta = math.atan2(math.sin(dtheta), math.cos(dtheta))
-            # Set fixed rotation speed.
+            # Fixed rotation speed.
             rotation_speed = 0.5
             rotation_duration = abs(dtheta) / rotation_speed
 
-            # Save target info.
             self.current_target = {
                 "target_x": target_x,
                 "target_y": target_y,
@@ -118,28 +115,24 @@ class OpenLoopController(Node):
 
         if self.mode == "coordinate":
             if self.state == "linear":
-                # Command forward motion.
                 cmd.linear.x = self.current_target["linear_speed"]
                 cmd.angular.z = 0.0
                 self.cmd_vel_pub.publish(cmd)
                 if elapsed >= self.current_target["t_duration"]:
-                    # Transition to rotation phase.
                     self.state = "rotate"
                     self.state_start_time = now
                     self.get_logger().info("Linear phase complete. Starting rotation phase.")
             elif self.state == "rotate":
-                # Command rotation at fixed speed.
                 cmd.linear.x = 0.0
                 cmd.angular.z = 0.5 * self.current_target["rotation_direction"]
                 self.cmd_vel_pub.publish(cmd)
                 if elapsed >= self.current_target["rotation_duration"]:
-                    # Rotation complete; update current heading.
+                    # Update current orientation.
                     self.current_theta = self.current_target["desired_theta"]
                     self.get_logger().info(f"Rotation complete. New heading: {self.current_theta:.2f} rad.")
-                    # Stop the robot.
                     stop_cmd = Twist()
                     self.cmd_vel_pub.publish(stop_cmd)
-                    # Trigger the next point.
+                    # Trigger next point.
                     self.next_pub.publish(Empty())
                     self.get_logger().info("Trigger sent for next point.")
                     self.state = "idle"
@@ -151,7 +144,6 @@ class OpenLoopController(Node):
                 cmd.angular.z = self.current_target["w"]
                 self.cmd_vel_pub.publish(cmd)
                 if elapsed >= self.current_target["t_duration"]:
-                    # Duration complete; stop and trigger next point.
                     stop_cmd = Twist()
                     self.cmd_vel_pub.publish(stop_cmd)
                     self.get_logger().info("Velocity phase complete.")
