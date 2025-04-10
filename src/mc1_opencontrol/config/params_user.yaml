@@ -3,5 +3,5 @@ path_generator:
     path_mode: "coordinate"
     # The 4 points are now stored as a flat list of doubles.
     # For each point: [x, y, t]
-    path_points: [1.0, 0.0, 10.0, 1.0, 1.0, 10.0, 0.0, 1.0, 10.0, 0.0, 0.0, 10.0]
+    path_points: [1.0, 0.0, 5.0, 1.0, 1.0, 5.0, 0.0, 1.0, 5.0, 0.0, 0.0, 5.0]
     robust_margin: 0.9

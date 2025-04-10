@@ -18,13 +18,14 @@ def generate_launch_description():
             package='mc1_opencontrol',
             executable='path_generator',
             name='path_generator',
-            parameters=[config]
+            parameters=[{'use_sim_time': True}, config],
         )
 
     user_path = Node(
             package='mc1_opencontrol',
             executable='user_path',
             name='user_path',
+            parameters=[{'use_sim_time': True}],
         )
 
     return LaunchDescription([

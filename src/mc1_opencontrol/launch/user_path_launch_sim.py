@@ -14,21 +14,19 @@ def generate_launch_description():
         'params_user.yaml'
     )
 
-    # Note: the dictionary parameter with 'use_sim_time': True will
-    # force the node to use simulation time. You can include this alongside your YAML config.
     path_generator = Node(
-        package='mc1_opencontrol',
-        executable='path_generator',
-        name='path_generator',
-        parameters=[{'use_sim_time': True}, config]
-    )
+            package='mc1_opencontrol',
+            executable='path_generator',
+            name='path_generator',
+            parameters=[{'use_sim_time': True}, config],
+        )
 
     user_path = Node(
-        package='mc1_opencontrol',
-        executable='user_path',
-        name='user_path',
-        parameters=[{'use_sim_time': True}]
-    )
+            package='mc1_opencontrol',
+            executable='user_path',
+            name='user_path',
+            parameters=[{'use_sim_time': True}],
+        )
 
     return LaunchDescription([
         user_path,
