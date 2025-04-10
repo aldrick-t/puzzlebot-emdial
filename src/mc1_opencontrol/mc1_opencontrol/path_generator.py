@@ -37,8 +37,10 @@ class PathGenerator(Node):
             return
 
         current_time = self.get_clock().now()
+        # Access the current point from the list-of-lists.
         point = self.points[self.current_index]
-        t_interval = point.get('t', 1.0)
+        # Expect t value at index 2.
+        t_interval = point[2]
         elapsed = (current_time - self.last_publish_time).nanoseconds * 1e-9
 
         if elapsed < t_interval:
@@ -46,16 +48,14 @@ class PathGenerator(Node):
 
         msg = Float32MultiArray()
         if self.mode == "coordinate":
-            # Expecting a coordinate point: {x, y, optionally yaw, and t}
-            x = point.get('x', 0.0)
-            y = point.get('y', 0.0)
-            yaw = point.get('yaw', self.default_yaw)
-            # Build message: [x, y, yaw, t]
-            msg.data = [x, y, yaw, t_interval]
+            # Expecting a coordinate point as [x, y, t]
+            x = point[0]
+            y = point[1]
+            msg.data = [x, y, t_interval]
         elif self.mode == "velocity":
-            # Expecting a velocity command: {v, w, t}
-            v = point.get('v', 0.0)
-            w = point.get('w', 0.0)
+            # Expecting a velocity command as [v, w, t]
+            v = point[0]
+            w = point[1]
             msg.data = [v, w, t_interval]
         else:
             self.get_logger().error("Unknown path_mode specified.")
