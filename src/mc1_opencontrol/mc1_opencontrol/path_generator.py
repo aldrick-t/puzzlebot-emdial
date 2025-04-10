@@ -16,6 +16,11 @@ class PathGenerator(Node):
         self.points_flat = self.get_parameter('path_points').value
         self.robust_margin = self.get_parameter('robust_margin').value
 
+        # print the parameters for debugging
+        self.get_logger().info("Path mode: {}".format(self.mode))
+        self.get_logger().info("Path points: {}".format(self.points_flat))
+        self.get_logger().info("Robust margin: {}".format(self.robust_margin))
+
         expected_elements = 3  # For both coordinate ([x, y, t]) and velocity ([v, w, t]) modes.
         if len(self.points_flat) % expected_elements != 0:
             self.get_logger().error("The number of elements in 'path_points' is not a multiple of {}.".format(expected_elements))
