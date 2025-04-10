@@ -1,9 +1,7 @@
 path_generator:
   ros__parameters:
     path_mode: "coordinate"
-    path_points:
-      - [1.0, 0.0, 10.0]
-      - [1.0, 1.0, 10.0]
-      - [0.0, 1.0, 10.0]
-      - [0.0, 0.0, 10.0]
+    # The 4 points are now stored as a flat list of doubles.
+    # For each point: [x, y, t]
+    path_points: [1.0, 0.0, 10.0, 1.0, 1.0, 10.0, 0.0, 1.0, 10.0, 0.0, 0.0, 10.0]
     robust_margin: 0.9
