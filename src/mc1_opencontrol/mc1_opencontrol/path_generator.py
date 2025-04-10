@@ -10,21 +10,83 @@ class PathGenerator(Node):
         super().__init__('path_generator')
         # Declare node parameters
         self.declare_parameter('path_mode', 'coordinate')
-        self.declare_parameter('path_points', [])
-        self.declare_parameter('default_yaw', 0.0)
+        self.declare_parameter('xv_1', 0.0)
+        self.declare_parameter('yw_1', 0.0)
+        self.declare_parameter('t_1', 0.0)
+        self.declare_parameter('xv_2', 0.0)
+        self.declare_parameter('yw_2', 0.0)
+        self.declare_parameter('t_2', 0.0)
+        self.declare_parameter('xv_3', 0.0)
+        self.declare_parameter('yw_3', 0.0)
+        self.declare_parameter('t_3', 0.0)
+        self.declare_parameter('xv_4', 0.0)
+        self.declare_parameter('yw_4', 0.0)
+        self.declare_parameter('t_4', 0.0)
         self.declare_parameter('robust_margin', 0.9)  # Not used for calculations here
 
         # Read parameters
         self.mode = self.get_parameter('path_mode').value
-        self.points = self.get_parameter('path_points').value
-        self.default_yaw = self.get_parameter('default_yaw').value
+        self.points = [ 
+            {'x': self.get_parameter('xv_1').value, 'y': self.get_parameter('yw_1').value, 't': self.get_parameter('t_1').value},
+            {'x': self.get_parameter('xv_2').value, 'y': self.get_parameter('yw_2').value, 't': self.get_parameter('t_2').value},
+            {'x': self.get_parameter('xv_3').value, 'y': self.get_parameter('yw_3').value, 't': self.get_parameter('t_3').value},
+            {'x': self.get_parameter('xv_4').value, 'y': self.get_parameter('yw_4').value, 't': self.get_parameter('t_4').value}
+        ]
+
+        self.velocity_points = [
+            {'v': self.get_parameter('xv_1').value, 'w': self.get_parameter('yw_1').value, 't': self.get_parameter('t_1').value},
+            {'v': self.get_parameter('xv_2').value, 'w': self.get_parameter('yw_2').value, 't': self.get_parameter('t_2').value},
+            {'v': self.get_parameter('xv_3').value, 'w': self.get_parameter('yw_3').value, 't': self.get_parameter('t_3').value},
+            {'v': self.get_parameter('xv_4').value, 'w': self.get_parameter('yw_4').value, 't': self.get_parameter('t_4').value}
+        ]
+        # Check if path_mode is valid
+        if self.mode not in ["coordinate", "velocity"]:
+            self.get_logger().error("Invalid path_mode specified. Use 'coordinate' or 'velocity'.")
+            rclpy.shutdown()
+            return
+        
+        # Check if path points are provided
+        if self.mode == "coordinate":
+            self.points = [point for point in self.points if 'x' in point and 'y' in point and 't' in point]
+        elif self.mode == "velocity":
+            self.points = [point for point in self.velocity_points if 'v' in point and 'w' in point and 't' in point]
+        # Check if path points are empty    
+        if not self.points:
+            self.get_logger().error("No path points provided. Shutting down.")
+            rclpy.shutdown()
+            return
+        # Check if path points are valid
+        for point in self.points:
+            if 't' not in point or point['t'] <= 0:
+                self.get_logger().error("Invalid time interval (t) specified. Must be positive.")
+                rclpy.shutdown()
+                return
+        # Check if path points are valid
+        for point in self.points:
+            if 'x' not in point or 'y' not in point:
+                self.get_logger().error("Invalid path points specified. Must contain 'x' and 'y'.")
+                rclpy.shutdown()
+                return
+        # Check if path points are valid
+        for point in self.points:
+            if 'v' not in point or 'w' not in point:
+                self.get_logger().error("Invalid path points specified. Must contain 'v' and 'w'.")
+                rclpy.shutdown()
+                return
+            
 
         if not self.points:
             self.get_logger().error("No path points provided. Shutting down.")
             rclpy.shutdown()
             return
 
-        # Create publisher on /pose using standard Float32MultiArray
+        # Create 4 publishers on /pose topic
+        # Create a publisher for the path points that will be sent to the robot each t_i 
+
+        self.publisher = self.create_publisher(Float32, '/pose', 10)
+
+
+
         self.publisher_ = self.create_publisher(Float32MultiArray, '/pose', 10)
         self.current_index = 0
         self.last_publish_time = self.get_clock().now()
