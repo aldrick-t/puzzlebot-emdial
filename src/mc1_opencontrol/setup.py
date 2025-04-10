@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'square_path = mc1_opencontrol.square_path:main',
             'user_path = mc1_opencontrol.user_path:main',
+            'path_generator = mc1_opencontrol.path_generator:main',
 
         ],
     },

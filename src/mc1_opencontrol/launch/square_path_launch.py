@@ -5,7 +5,7 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     # Get package directory
-    package_directory = get_package_share_directory('final_challenge')
+    package_directory = get_package_share_directory('mc1_opencontrol')
 
         # Load the parameters from the YAML file
     config = os.path.join(

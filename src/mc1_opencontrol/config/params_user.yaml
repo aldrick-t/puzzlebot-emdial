@@ -1,0 +1,21 @@
+path_generator:
+  ros__parameters:
+    path_mode: "coordinate"
+    path_points:
+      - x: 1.0
+        y: 0.0
+        yaw: 0.0
+        t: 10.0
+      - x: 1.0
+        y: 1.0
+        yaw: 0.0
+        t: 10.0
+      - x: 0.0
+        y: 1.0
+        yaw: 0.0
+        t: 10.0
+      - x: 0.0
+        y: 0.0
+        yaw: 0.0
+        t: 10.0
+    robust_margin: 0.9

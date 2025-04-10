@@ -1,107 +1,105 @@
+#!/usr/bin/env python3
+# my_robot_package/controller_node.py
+
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import Float32MultiArray
+import math
 import numpy as np
-from geometry_msgs.msg import Twist
 
-class UserParameter(Node):
+# Define dynamic limits
+MAX_LINEAR = 0.6    # m/s
+MAX_ANGULAR = 1.5   # rad/s
+
+class OpenLoopController(Node):
     def __init__(self):
-        super().__init__('user_path')
-        self.wait_for_ros_time()
+        super().__init__('open_loop_controller')
+        self.declare_parameter('robust_margin', 0.9)
+        self.robust_margin = self.get_parameter('robust_margin').value
 
-        self.pose_pub = self.create_publisher(Twist, 'pose', 10)
+        self.subscription = self.create_subscription(
+            Float32MultiArray,
+            '/pose',
+            self.pose_callback,
+            10)
 
-        # Declare parameters
-        self.square_side = self.declare_parameter('square_side', 2.0).get_parameter_value().double_value
-        self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.user_time = self.declare_parameter('user_time', 60).get_parameter_value().double_value
-        self.user_linear_speed = self.declare_parameter('user_linear_speed', 0.3).get_parameter_value().double_value
-        self.user_angular_speed = self.declare_parameter('user_angular_speed', 0.3).get_parameter_value().double_value
-        self.turn_angle = self.declare_parameter('turn_angle', np.pi/2).get_parameter_value().double_value
+        # Initialize the robot’s current pose (for coordinate integration)
+        self.current_x = 0.0
+        self.current_y = 0.0
+        self.current_theta = 0.0
 
-        # Parameter validation
-        if self.user_time and (self.user_linear_speed or self.user_angular_speed):
-            self.get_logger().error("Provide either 'user_time' or 'user_linear_speed' + 'user_angular_speed', not both.")
-            raise ValueError("Invalid parameter combination.")
+    def pose_callback(self, msg: Float32MultiArray):
+        data = msg.data
 
-        if not self.user_time and (self.user_linear_speed is None or self.user_angular_speed is None):
-            self.get_logger().error("When 'user_time' is not set, both 'user_linear_speed' and 'user_angular_speed' must be defined.")
-            raise ValueError("Missing required parameters.")
+        if len(data) == 4:
+            # Coordinate mode: received message: [x, y, theta, t]
+            target_x, target_y, target_theta, t_duration = data
+            dx = target_x - self.current_x
+            dy = target_y - self.current_y
+            distance = math.sqrt(dx**2 + dy**2)
+            dtheta = target_theta - self.current_theta
 
-        self.auto_tune()
+            # Compute speeds based on the provided time
+            computed_linear_speed = (distance / t_duration) if t_duration > 0 else 0.0
+            computed_angular_speed = (dtheta / t_duration) if t_duration > 0 else 0.0
 
-        self.state = 0
-        self.leg_counter = 0
-        self.state_start_time = self.get_clock().now()
+            # Apply robust margin
+            computed_linear_speed *= self.robust_margin
+            computed_angular_speed *= self.robust_margin
 
-        self.timer = self.create_timer(0.1, self.control_loop)
+            # Saturate speeds against maximum allowed limits
+            commanded_linear_speed = min(computed_linear_speed, MAX_LINEAR)
+            commanded_angular_speed = math.copysign(min(abs(computed_angular_speed), MAX_ANGULAR), computed_angular_speed)
 
-        self.get_logger().info('Square Path Controller Initialized')
+            # Warn if required speeds exceed limits
+            if computed_linear_speed > MAX_LINEAR or abs(computed_angular_speed) > MAX_ANGULAR:
+                self.get_logger().warn(
+                    f"[Coord Mode] Target not reachable: Required speeds (linear: {computed_linear_speed:.2f} m/s, angular: {computed_angular_speed:.2f} rad/s) exceed limits.")
+            else:
+                self.get_logger().info(
+                    f"[Coord Mode] Target reachable: Computed speeds (linear: {computed_linear_speed:.2f} m/s, angular: {computed_angular_speed:.2f} rad/s).")
+            
+            self.get_logger().info(
+                f"[Coord Mode] Commanding speeds: linear: {commanded_linear_speed:.2f} m/s, angular: {commanded_angular_speed:.2f} rad/s.")
 
-    def auto_tune(self):
-        if self.user_time:
-            travel_time = self.user_time * 0.8
-            rotate_time = self.user_time * 0.2
+            # Update current pose to the target pose (assumed reached after t_duration)
+            self.current_x = target_x
+            self.current_y = target_y
+            self.current_theta = target_theta
 
-            self.linear_speed = (self.square_side / (travel_time / 4)) * self.robust_margin
-            self.forward_time = self.square_side / self.linear_speed
+        elif len(data) == 3:
+            # Velocity mode: received message: [v, w, t]
+            v_input, w_input, t_duration = data
+            # Apply robust margin
+            effective_v = v_input * self.robust_margin
+            effective_w = w_input * self.robust_margin
 
-            self.angular_speed = (self.turn_angle / (rotate_time / 4)) * self.robust_margin
-            self.rotate_time = self.turn_angle / self.angular_speed
+            # Saturate speeds to dynamic limits
+            effective_v = min(effective_v, MAX_LINEAR)
+            effective_w = math.copysign(min(abs(effective_w), MAX_ANGULAR), effective_w)
+
+            # Log the commanded speeds
+            self.get_logger().info(
+                f"[Vel Mode] Commanding speeds: linear: {effective_v:.2f} m/s, angular: {effective_w:.2f} rad/s.")
+            
+            # Integrate the pose over time t_duration using Euler integration
+            delta_x = effective_v * t_duration * math.cos(self.current_theta)
+            delta_y = effective_v * t_duration * math.sin(self.current_theta)
+            delta_theta = effective_w * t_duration
+
+            self.current_x += delta_x
+            self.current_y += delta_y
+            self.current_theta += delta_theta
+
+            self.get_logger().info(
+                f"[Vel Mode] Updated Pose: x: {self.current_x:.2f}, y: {self.current_y:.2f}, theta: {self.current_theta:.2f} (over t: {t_duration}s)")
+
         else:
-            self.linear_speed = self.user_linear_speed * self.robust_margin
-            self.angular_speed = self.user_angular_speed * self.robust_margin
-
-            self.forward_time = self.square_side / self.linear_speed
-            self.rotate_time = self.turn_angle / self.angular_speed
-
-        self.get_logger().info(f"Linear speed: {self.linear_speed:.2f} m/s, time: {self.forward_time:.2f} s")
-        self.get_logger().info(f"Angular speed: {self.angular_speed:.2f} rad/s, time: {self.rotate_time:.2f} s")
-
-    
-    def control_loop(self):
-        now = self.get_clock().now()
-        elapsed_time = (now - self.state_start_time).nanoseconds * 1e-9
-        cmd = Twist()
-
-        if self.state == 0:
-            cmd.linear.x = self.linear_speed
-            if elapsed_time >= self.forward_time:
-                self.state = 1
-                self.state_start_time = now
-                self.get_logger().info(f"[SIDE {self.leg_counter + 1}] Forward complete. Turning...")
-
-        elif self.state == 1:
-            cmd.angular.z = self.angular_speed
-            self.get_logger().info(f"Current angular speed: {cmd.angular.z:.2f} rad/s")
-            if elapsed_time >= self.rotate_time:
-                self.leg_counter += 1
-                if self.leg_counter >= 4:
-                    self.state = 2
-                    self.get_logger().info(f"[TURN {self.leg_counter}] Final turn complete.")
-                else:
-                    self.state = 0
-                    self.get_logger().info(f"[TURN {self.leg_counter}] Turn complete. Moving forward...")
-                self.state_start_time = now
-
-        elif self.state == 2:
-            self.get_logger().info("🛑 Square path complete. Stopping robot.")
-            self.pose_pub.publish(Twist())
-            self.timer.cancel()
-            return
-
-        self.pose_pub.publish(cmd)
-
-    def wait_for_ros_time(self):
-        self.get_logger().info('Waiting for ROS time to become active...')
-        while rclpy.ok():
-            if self.get_clock().now().nanoseconds > 0:
-                break
-            rclpy.spin_once(self, timeout_sec=0.1)
-        self.get_logger().info('ROS time is active!')
+            self.get_logger().error("Received message with unexpected data length. Expect 4 elements for coordinate mode or 3 elements for velocity mode.")
 
 def main(args=None):
     rclpy.init(args=args)
-    node = UserParameter()
+    node = OpenLoopController()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
