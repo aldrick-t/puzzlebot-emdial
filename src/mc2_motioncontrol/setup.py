@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import os
 from glob import glob
 
-package_name = 'mc1_opencontrol'
+package_name = 'mc2_motioncontrol'
 
 setup(
     name=package_name,
@@ -24,10 +24,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'square_path = mc1_opencontrol.square_path:main',
-            'user_path = mc1_opencontrol.user_path:main',
-            'path_generator = mc1_opencontrol.path_generator:main',
-
         ],
     },
 )
