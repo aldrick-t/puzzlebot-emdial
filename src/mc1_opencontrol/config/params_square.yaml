@@ -1,0 +1,11 @@
+square_path:
+  ros__parameters:
+    square_side: 2.0
+    robust_margin: 0.9
+
+    # OPTION 1: Use time (comment out both speeds)
+    # user_time: 40.0
+
+    # OPTION 2: Use speeds (comment out time)
+    user_linear_speed: 0.4
+    user_angular_speed: 0.6
