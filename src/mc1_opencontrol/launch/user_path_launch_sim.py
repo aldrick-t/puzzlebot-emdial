@@ -7,7 +7,7 @@ def generate_launch_description():
     # Get package directory
     package_directory = get_package_share_directory('mc1_opencontrol')
 
-        # Load the parameters from the YAML file
+    # Load the parameters from the YAML file
     config = os.path.join(
         package_directory,
         'config',
@@ -25,12 +25,11 @@ def generate_launch_description():
             package='mc1_opencontrol',
             executable='user_path',
             name='user_path',
-            parameters=[{'use_sim_time': True}]
+            parameters=[{'use_sim_time': True}],
         )
 
     return LaunchDescription([
         user_path,
         path_generator,
     ])
-
 

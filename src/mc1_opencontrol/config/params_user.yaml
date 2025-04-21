@@ -1,21 +1,20 @@
+
+#Coordinate mode
+
 path_generator:
   ros__parameters:
     path_mode: "coordinate"
-    path_points:
-      - x: 1.0
-        y: 0.0
-        yaw: 0.0
-        t: 10.0
-      - x: 1.0
-        y: 1.0
-        yaw: 0.0
-        t: 10.0
-      - x: 0.0
-        y: 1.0
-        yaw: 0.0
-        t: 10.0
-      - x: 0.0
-        y: 0.0
-        yaw: 0.0
-        t: 10.0
+    # The 4 points are now stored as a flat list of doubles.
+    # For each point: [x, y, t]
+    path_points: [0.5, 0.0, 5.0, 1.0, 0.5, 8.0, 0.5, 1.0, 4.0, 0.0, 1.0, 9.0]
     robust_margin: 0.9
+
+
+#Velocity mode
+
+# path_generator:
+#   ros__parameters:
+#     path_mode: "velocity"
+#     # For each command: [v, w, t]
+#     path_points: [0.3, 0.785, 2.0, 0.5, -0.2, 2.0, 0.3, 0.2, 2.0, 0.6, -1.0, 5.0]
+#     robust_margin: 0.9

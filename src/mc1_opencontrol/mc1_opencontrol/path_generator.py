@@ -1,82 +1,85 @@
 #!/usr/bin/env python3
-# my_robot_package/path_generator_node.py
-
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Empty
 
 class PathGenerator(Node):
     def __init__(self):
         super().__init__('path_generator')
-        # Declare node parameters
+        # Declare parameters.
         self.declare_parameter('path_mode', 'coordinate')
-        self.declare_parameter('path_points', [])
-        self.declare_parameter('default_yaw', 0.0)
-        self.declare_parameter('robust_margin', 0.9)  # Not used for calculations here
+        # Use a nonempty default so that the parameter type is clearly DOUBLE_ARRAY.
+        self.declare_parameter('path_points', [0.0, 0.0, 0.0])
+        self.declare_parameter('robust_margin', 0.9)
 
-        # Read parameters
         self.mode = self.get_parameter('path_mode').value
-        self.points = self.get_parameter('path_points').value
-        self.default_yaw = self.get_parameter('default_yaw').value
+        self.points_flat = self.get_parameter('path_points').value
+        self.robust_margin = self.get_parameter('robust_margin').value
 
-        if not self.points:
-            self.get_logger().error("No path points provided. Shutting down.")
+        # print the parameters for debugging
+        self.get_logger().info("Path mode: {}".format(self.mode))
+        self.get_logger().info("Path points: {}".format(self.points_flat))
+        self.get_logger().info("Robust margin: {}".format(self.robust_margin))
+
+        expected_elements = 3  # For both coordinate ([x, y, t]) and velocity ([v, w, t]) modes.
+        if len(self.points_flat) % expected_elements != 0:
+            self.get_logger().error("The number of elements in 'path_points' is not a multiple of {}.".format(expected_elements))
             rclpy.shutdown()
             return
-
-        # Create publisher on /pose using standard Float32MultiArray
-        self.publisher_ = self.create_publisher(Float32MultiArray, '/pose', 10)
+        self.num_points = len(self.points_flat) // expected_elements
         self.current_index = 0
-        self.last_publish_time = self.get_clock().now()
-        self.timer = self.create_timer(0.1, self.timer_callback)
 
-    def timer_callback(self):
-        if self.current_index >= len(self.points):
-            self.get_logger().info("All points published. Stopping timer.")
-            self.timer.cancel()
+        # Publisher for pose messages on /pose.
+        self.pose_pub = self.create_publisher(Float32MultiArray, '/pose', 10)
+        # Subscriber: listens for trigger messages on /next_point.
+        self.trigger_sub = self.create_subscription(Empty, '/next_point', self.trigger_callback, 10)
+
+        self.get_logger().info("PathGenerator initialized.")
+
+        # Wait until a subscriber is connected before publishing the first point.
+        self.get_logger().info("Waiting for a subscriber on /pose...")
+        while self.pose_pub.get_subscription_count() < 1:
+            rclpy.spin_once(self, timeout_sec=0.1)
+        self.get_logger().info("Subscriber detected. Publishing initial point.")
+        self.publish_point(initial=True)
+
+    def publish_point(self, initial=False):
+        if self.current_index >= self.num_points:
+            self.get_logger().info("All points have been published. No more points.")
             return
 
-        current_time = self.get_clock().now()
-        point = self.points[self.current_index]
-        t_interval = point.get('t', 1.0)
-        elapsed = (current_time - self.last_publish_time).nanoseconds * 1e-9
-
-        if elapsed < t_interval:
-            return  # Wait until the specified time interval has passed
-
-        msg = Float32MultiArray()
+        i = self.current_index * 3
+        t_interval = self.points_flat[i + 2]
+        msg_out = Float32MultiArray()
         if self.mode == "coordinate":
-            # Expecting a coordinate point: {x, y, optionally yaw, and t}
-            x = point.get('x', 0.0)
-            y = point.get('y', 0.0)
-            yaw = point.get('yaw', self.default_yaw)
-            # Build message: [x, y, yaw, t]
-            msg.data = [x, y, yaw, t_interval]
+            x = self.points_flat[i]
+            y = self.points_flat[i + 1]
+            msg_out.data = [x, y, t_interval]
         elif self.mode == "velocity":
-            # Expecting a velocity command: {v, w, t}
-            v = point.get('v', 0.0)
-            w = point.get('w', 0.0)
-            msg.data = [v, w, t_interval]
+            v = self.points_flat[i]
+            w = self.points_flat[i + 1]
+            msg_out.data = [v, w, t_interval]
         else:
             self.get_logger().error("Unknown path_mode specified.")
-            self.timer.cancel()
             return
 
-        self.publisher_.publish(msg)
-        self.get_logger().info(f"Published point {self.current_index + 1}: {msg.data}")
-        self.last_publish_time = current_time
+        self.pose_pub.publish(msg_out)
+        if initial:
+            self.get_logger().info("Published initial point {}: {}".format(self.current_index + 1, msg_out.data))
+        else:
+            self.get_logger().info("Published point {}: {}".format(self.current_index + 1, msg_out.data))
         self.current_index += 1
+
+    def trigger_callback(self, msg):
+        # On receiving a trigger, publish the next point.
+        self.publish_point()
 
 def main(args=None):
     rclpy.init(args=args)
     node = PathGenerator()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
