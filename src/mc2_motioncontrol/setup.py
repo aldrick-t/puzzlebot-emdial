@@ -24,6 +24,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'path_control = mc2_motioncontrol.path_control:main',
+            'odometry_node = mc2_motioncontrol.odometry_node:main',
+            'path_generator = mc2_motioncontrol.path_generator:main',
+            'square_control = mc2_motioncontrol.square_control:main',
         ],
     },
 )
