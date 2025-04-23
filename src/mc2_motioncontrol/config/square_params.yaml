@@ -3,5 +3,13 @@ path_generator:
   #4 points stored as a flat list of doubles.
   # For each point: [x, y]
   path_points: [0.0, 0,2, 2.0, 2.0, 2.0, 0,0, 0.0, 0.0]
+  #Square size in meters
   square_side: 2.0
+  #User set params
+  linear_velocity: 0.5
+  angular_velocity: 0.5
+  #Controller Gains
+  kp_v: 0.5
+  kp_w: 0.5
+  #Offset
   robust_margin: 0.9
