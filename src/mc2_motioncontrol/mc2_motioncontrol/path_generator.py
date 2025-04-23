@@ -2,7 +2,7 @@
 Path Generator Node, publishes goal points to the /goal topic.
 Recieves all goal points from user defined parameters.
 The path is defined in a 2D coordinate system.
-Recieves trigger messages on /next_point to publish the next point.
+Recieves trigger messages on /next_goal to publish the next point.
 Decides control mode and gains.
 '''
 
@@ -25,13 +25,13 @@ class PathGenerator(Node):
 
         # publisher & subscriber
         self.goal_pub = self.create_publisher(Pose2D, 'goal', 10)
-        self.create_subscription(Empty, 'next_point', self._next_point_cb, 10)
+        self.create_subscription(Empty, 'next_goal', self._next_goal_cb, 10)
 
         # publish first point if available
         if self.points:
             self._publish(self.index)
 
-    def _next_point_cb(self, msg):
+    def _next_goal_cb(self, msg):
         self.index += 1
         if self.index >= len(self.points):
             self.get_logger().info('Reached end of path, no more points.')
