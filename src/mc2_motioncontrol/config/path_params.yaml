@@ -8,7 +8,7 @@ path_control:
   ros_parameters:
   #Controller Gains
   kp_v: 0.5 #Linear velocity gain
-  kp_w: 0.5 #Angular velocity gain
+  kp_w: 1.0 #Angular velocity gain
   #Offset
   robust_margin: 0.9
   #Tolerance Threshold
