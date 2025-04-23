@@ -8,7 +8,7 @@ Goal points are set via params.
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Pose2D
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Empty
 from geometry_msgs.msg import Twist
 import numpy as np
 import signal # To handle Ctrl+C
@@ -20,7 +20,7 @@ class pathControl(Node):
         self.wait_for_ros_time()
 
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
-        self.next_goal_pub = self.create_publisher(Bool, 'next_goal', 10)
+        self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
         self.pose_sub = self.create_subscription(Twist, 'pose', self.pose_callback, 10)
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_callback, 10)
         
@@ -59,6 +59,7 @@ class pathControl(Node):
 
             self.get_logger().info("Goal received")
             self.get_logger().info(f"Moving to goal: x={self.xg:.2f}, y={self.yg:.2f}")
+
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
             # Goal Threshold
@@ -67,17 +68,28 @@ class pathControl(Node):
                 self.get_logger().info(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
                 self.get_logger().info(f"Current theta: {self.theta_r:.2f}")
                 self.get_logger().info(f"Within thresh: {ed:.2f} m")
-                self.goal_received = False #mobile_robotics example use only
+                self.goal_received = False
+                self.get_logger().debug(f"Goal received: {self.goal_received}")
+                self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
+                self.get_logger().debug("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
             else:
                 self.cmd_vel.linear.x = self.kv * ed
+                self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
+                if self.cmd_vel.linear.x > 0.6:
+                    self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
                 self.cmd_vel.angular.z = self.kw * etheta
+                self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
+                if self.cmd_vel.angular.z > 1.5:
+                    self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
 
             self.pub_cmd_vel.publish(self.cmd_vel)
         else: 
-            print("Waiting for goal")
-            print("Publish the goal to the /goal topic")
+            self.get_logger().info("Waiting for goal")
+            self.get_logger().debug(f"Goal received: {self.goal_received}")
+
+            
 
     def get_errors(self, xr, yr, xg, yg, theta_r):
         ## This function computes the errors in x and y
