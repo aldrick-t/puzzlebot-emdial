@@ -7,7 +7,9 @@ Goal points are set via params.
 
 import rclpy
 from rclpy.node import Node
+from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import Pose2D
+import rclpy.parameter
 from std_msgs.msg import Bool, Empty
 from geometry_msgs.msg import Twist
 import numpy as np
@@ -21,8 +23,8 @@ class pathControl(Node):
 
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
-        self.pose_sub = self.create_subscription(Twist, 'pose', self.pose_callback, 10)
-        self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_callback, 10)
+        self.pose_sub = self.create_subscription(Twist, 'pose', self.pose_cb, 10)
+        self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
         
         # Handle shutdown gracefully
         signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
@@ -34,6 +36,7 @@ class pathControl(Node):
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
+        self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.xg = 0.0 # Goal position x[m]
         self.yg = 0.0 # Goal position y[m]
 
@@ -75,16 +78,16 @@ class pathControl(Node):
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
             else:
-                self.cmd_vel.linear.x = self.kv * ed
+                self.cmd_vel.linear.x = self.kp_v * ed
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
                 if self.cmd_vel.linear.x > 0.6:
                     self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
-                self.cmd_vel.angular.z = self.kw * etheta
+                self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
                 if self.cmd_vel.angular.z > 1.5:
                     self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
 
-            self.pub_cmd_vel.publish(self.cmd_vel)
+            self.cmd_vel_pub.publish(self.cmd_vel)
         else: 
             self.get_logger().info("Waiting for goal")
             self.get_logger().debug(f"Goal received: {self.goal_received}")
@@ -141,7 +144,7 @@ class pathControl(Node):
             elif param.name == 'kp_w' and param.type_ == param.Type.DOUBLE:
                 self.kp_w = param.value
                 self.get_logger().info(f"Updated kp_w: {self.kp_w}")
-        return rclpy.parameter.ParameterCallbackResult(successful=True)
+        return SetParametersResult(successful=True)
 
     def shutdown_function(self, signum, frame):
         # Handle shutdown gracefully

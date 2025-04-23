@@ -8,34 +8,38 @@ Decides control mode and gains.
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, Float32
 from geometry_msgs.msg import Pose2D
 
 class PathGenerator(Node):
     def __init__(self):
         super().__init__('path_generator')
-        # load parameters: path: list of [x,y], control_modes: list of str, gains: list of [k_p,k_d]
-        self.points = self.declare_parameter('path', [0, 0]).value
+        # load parameters...
+        raw = self.declare_parameter('path_points', [0.0, 0.0]).value
+        if len(raw) % 2 != 0:
+            self.get_logger().error('path_points must have an even number of elements (x,y pairs)')
+        self.points = [[raw[i], raw[i+1]] for i in range(0, len(raw), 2)]
         self.control_modes = self.declare_parameter('control_modes', []).value
-        self.gains = self.declare_parameter('gains', [0, 0]).value
+        self.gains = self.declare_parameter('gains', [0.0, 0.0]).value
 
         if not self.points:
             self.get_logger().error('No path points specified!')
-        self.index = 0
+
+        # Initialize index to -1 to wait for the first /next_goal message
+        self.index = -1
 
         # publisher & subscriber
         self.goal_pub = self.create_publisher(Pose2D, 'goal', 10)
         self.create_subscription(Empty, 'next_goal', self._next_goal_cb, 10)
 
-        # publish first point if available
-        if self.points:
-            self._publish(self.index)
+        self.get_logger().info("Node initialized and waiting for /next_goal message to publish the first point.")
 
     def _next_goal_cb(self, msg):
-        self.index += 1
-        if self.index >= len(self.points):
+        # Increment index only after publishing the current point
+        if self.index + 1 >= len(self.points):
             self.get_logger().info('Reached end of path, no more points.')
             return
+        self.index += 1
         self._publish(self.index)
 
     def _publish(self, idx):
@@ -44,8 +48,8 @@ class PathGenerator(Node):
         gain = self.gains[idx] if idx < len(self.gains) else []
 
         msg = Pose2D()
-        msg.x = float(point[0])
-        msg.y = float(point[1])
+        msg.x = point[0]
+        msg.y = point[1]
         msg.theta = 0.0  # Default value for theta, update if needed
 
         self.goal_pub.publish(msg)
