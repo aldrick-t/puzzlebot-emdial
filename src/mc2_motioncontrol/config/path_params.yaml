@@ -1,15 +1,18 @@
 path_generator:
   ros__parameters:
-  #4 points stored as a flat list of doubles.
+  #points stored as a flat list of doubles.
   # For each point: [x, y]
   path_points: [0.0, 0,2, 2.0, 2.0, 2.0, 0,0, 0.0, 0.0]
 
 path_control:
   ros_parameters:
   #Controller Gains
-  #Linear velocity gain
-  kp_v: 0.5
-  #Angular velocity gain
-  kp_w: 0.5
+  kp_v: 0.5 #Linear velocity gain
+  kp_w: 0.5 #Angular velocity gain
   #Offset
   robust_margin: 0.9
+  #Tolerance Threshold
+  goal_threshold: 0.05 
+  #Maximum velocities
+  max_v: 0.5 #Max velocity
+  max_w: 0.5 #Max angular velocity
