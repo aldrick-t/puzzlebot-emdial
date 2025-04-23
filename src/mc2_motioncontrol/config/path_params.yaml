@@ -2,7 +2,7 @@ path_generator:
   ros__parameters:
     #points stored as a flat list of doubles.
     # For each point: [x, y]
-    path_points: [0.0, 0.2, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0]
+    path_points: [0.0, 2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0]
 
 path_control:
   ros__parameters:
