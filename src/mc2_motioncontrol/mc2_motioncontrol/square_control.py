@@ -23,7 +23,7 @@ class pathControl(Node):
 
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
-        self.pose_sub = self.create_subscription(Twist, 'pose', self.pose_cb, 10)
+        self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
         
         # Handle shutdown gracefully
@@ -45,8 +45,8 @@ class pathControl(Node):
         self.yr = 0.0 # Robot position y[m]
         self.theta_r = 0.0 # Robot orientation [rad]
 
-        self.kp_v = self.declare_parameter('kp_v', 0.5).get_parameter_value().double_value # Linear velocity gain
-        self.kp_w = self.declare_parameter('kp_w', 1.0).get_parameter_value().double_value # Angular velocity gain
+        self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
+        self.kp_w = self.declare_parameter('kp_w', 0.8).get_parameter_value().double_value # Angular velocity gain
 
         self.cmd_vel = Twist()
         timer_period = 0.05 
@@ -78,13 +78,16 @@ class pathControl(Node):
                 if etheta < 0.01:
                     self.cmd_vel.angular.z = 0.0
                     self.cmd_vel.linear.x = self.kp_v * ed
+                    self.get_logger().info("Moving forward")
                     self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
                     if self.cmd_vel.linear.x > 0.6:
                         self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
                     self.cmd_vel_pub.publish(self.cmd_vel)
                 else:
+
                     self.cmd_vel.linear.x = 0.0
                     self.cmd_vel.angular.z = self.kp_w * etheta
+                    self.get_logger().info("Rotating")
                     self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
                     if self.cmd_vel.angular.z > 1.5:
                         self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
