@@ -32,9 +32,6 @@ class GoToGoal(Node):
 
         self.kv = 0.5 # Linear velocity gain
         self.kw = 1.0 # Angular velocity gain
-
-        # self.ed = 0.0 # Error in x[m]
-        # self.etheta = 0.0 # Error in y[m]
         
         self.cmd_vel = Twist()
         timer_period = 0.05 
