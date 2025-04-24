@@ -11,8 +11,6 @@ path_control:
     #Controller Gains
     kp_v: 0.2 #Linear velocity gain
     kp_w: 1.2 #Angular velocity gain
-    #Offset
-    robust_margin: 0.9
     #Tolerance Threshold
     goal_threshold: 0.05 
     #Maximum velocities
