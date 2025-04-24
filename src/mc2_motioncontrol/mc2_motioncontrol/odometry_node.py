@@ -7,6 +7,7 @@ It publishes the pose to the /pose topic.
 '''
 
 import rclpy 
+import rclpy.logging
 from rclpy.node import Node 
 from geometry_msgs.msg import Pose2D 
 from std_msgs.msg import Float32 
@@ -29,21 +30,24 @@ class Odometry(Node):
         self.create_subscription(Float32, "VelocityEncL",  self.wl_cb, qos.qos_profile_sensor_data)  
         ############ ROBOT CONSTANTS ################  
         self.r=0.05 #wheel radius for our simulated robot[m] 
-<<<<<<< HEAD
         self.L=0.174 #wheel separation for our simulated robot [m] 
-=======
-        self.L=0.176 #wheel separation for our simulated robot [m] 
->>>>>>> 048031bec38f79fe6a26086617e6c46fba6433b2
         self.wl = 0.0 #Left wheel speed [rad/s] 
         self.wr = 0.0 #Right wheel speed [rad/s] 
         self.x = 0.0 #Robot position in x-axis [m] 
         self.y = 0.0 #Robot position in y-axis [m] 
         self.theta = 0.0 #Robot orientation [rad] 
+
+        #logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        self.get_logger().debug("Logger set to DEBUG level")
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
+
         self.robot_pose = Pose2D() 
         self.prev_time_ns = self.get_clock().now().nanoseconds  # Get the current time in nanoseconds
+
         timer_period = 0.05 
         self.create_timer(timer_period, self.main_timer_cb) 
-        self.get_logger().info("Node initialized odo!!") 
+        self.get_logger().info("Odometry Initialized!") 
      
 
     def main_timer_cb(self): 
