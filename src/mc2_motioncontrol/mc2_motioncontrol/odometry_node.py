@@ -39,7 +39,7 @@ class Odometry(Node):
         self.prev_time_ns = self.get_clock().now().nanoseconds  # Get the current time in nanoseconds
         timer_period = 0.05 
         self.create_timer(timer_period, self.main_timer_cb) 
-        self.get_logger().info("Node initialized!!") 
+        self.get_logger().info("Node initialized odo!!") 
      
 
     def main_timer_cb(self): 
