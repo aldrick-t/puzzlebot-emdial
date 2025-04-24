@@ -29,7 +29,11 @@ class Odometry(Node):
         self.create_subscription(Float32, "VelocityEncL",  self.wl_cb, qos.qos_profile_sensor_data)  
         ############ ROBOT CONSTANTS ################  
         self.r=0.05 #wheel radius for our simulated robot[m] 
+<<<<<<< HEAD
         self.L=0.174 #wheel separation for our simulated robot [m] 
+=======
+        self.L=0.176 #wheel separation for our simulated robot [m] 
+>>>>>>> 048031bec38f79fe6a26086617e6c46fba6433b2
         self.wl = 0.0 #Left wheel speed [rad/s] 
         self.wr = 0.0 #Right wheel speed [rad/s] 
         self.x = 0.0 #Robot position in x-axis [m] 
