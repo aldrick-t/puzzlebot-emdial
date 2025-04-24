@@ -69,6 +69,7 @@ class pathControl(Node):
 
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
+
             # Goal Threshold
             if ed < self.goal_threshold: #Threshold value (tolerance) for goal reached in meters.
                 self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
@@ -89,10 +90,12 @@ class pathControl(Node):
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
                 if self.cmd_vel.linear.x > 0.5:
                     self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
+                    self.cmd_vel.angular.x = 0.5 
                 self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
                 if self.cmd_vel.angular.z > 1.5:
                     self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
+                    self.cmd_vel.angular.z = 1.0 # Consider increasing this limit if safe
 
             self.cmd_vel_pub.publish(self.cmd_vel)
         else: 
