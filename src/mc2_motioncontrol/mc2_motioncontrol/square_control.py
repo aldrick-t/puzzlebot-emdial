@@ -1,8 +1,8 @@
 '''
-User Defined Path Controller Node with PID Control
+User Defined Path Controller Node with P Control
 The robot moves in the set path, calculating pose and velocity.
 The robot stops after completing the path.
-Goal points are set via params.
+Goal points are set via params path_points: [2.0, 0.0, 2.0, 2.0, 0.0, 2.0, 0.0, 0.0].
 '''
 
 import rclpy
@@ -36,7 +36,7 @@ class pathControl(Node):
 
         self.add_on_set_parameters_callback(self.parameter_callback)
 
-        self.goal_received = False
+        self.goal_received = False # Flag to check if goal is received
         self.xg = 0.0 # Goal position x[m]
         self.yg = 0.0 # Goal position y[m]
 
@@ -48,7 +48,7 @@ class pathControl(Node):
         self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
         self.kp_w = self.declare_parameter('kp_w', 0.9).get_parameter_value().double_value # Angular velocity gain
         
-        self.state = 9
+        self.state = -1
 
         #logger config
         self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
@@ -65,15 +65,16 @@ class pathControl(Node):
 
     def main_timer_cb(self):
         ## This function is called every 0.05 seconds
-        self.get_logger().debug("Timer ahhhh")
-        if self.state == 9: #idle
-            self.get_logger().info("State 9")
+        self.get_logger().debug("Entering Timer Callback")
+        if self.state == -1: #idle
+            self.get_logger().info("State -1")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().debug(f"Goal received @9: {self.goal_received}")
+                self.get_logger().debug(f"Goal received @-1: {self.goal_received}")
                 self.get_logger().info("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
+                self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
                 self.state = 1
 
         elif self.state == 0:
@@ -86,7 +87,7 @@ class pathControl(Node):
                 self.cmd_vel.angular.z = 0.0
                 self.state = 1
         
-        # th state 1 will move angular to the goal and statet 2 will move linear to the goal
+        # The state 1 will move angular to the goal and statet 2 will move linear to the goal
         elif self.state == 1:
             self.get_logger().info("State 1")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
