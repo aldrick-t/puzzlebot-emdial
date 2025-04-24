@@ -19,7 +19,7 @@ import sys # To exit the program
 class pathControl(Node):
     def __init__(self):
         super().__init__('square_control')
-        self.wait_for_ros_time()
+        #self.wait_for_ros_time()
 
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
@@ -46,7 +46,7 @@ class pathControl(Node):
         self.theta_r = 0.0 # Robot orientation [rad]
 
         self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
-        self.kp_w = self.declare_parameter('kp_w', 0.8).get_parameter_value().double_value # Angular velocity gain
+        self.kp_w = self.declare_parameter('kp_w', 0.9).get_parameter_value().double_value # Angular velocity gain
 
         self.cmd_vel = Twist()
         timer_period = 0.05 
@@ -74,22 +74,29 @@ class pathControl(Node):
                 self.get_logger().debug("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
+                
             else:
-                if etheta < 0.01:
+                if np.abs(etheta) < 0.06:
                     self.cmd_vel.angular.z = 0.0
                     self.cmd_vel.linear.x = self.kp_v * ed
                     self.get_logger().info("Moving forward")
-                    self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
+                    self.get_logger().info(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
                     if self.cmd_vel.linear.x > 0.6:
+                        self.cmd_vel.linear.x = 0.6
                         self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
+                    elif self.cmd_vel.linear.x < 0.05:
+                        self.cmd_vel.linear.x = 0.05
                     self.cmd_vel_pub.publish(self.cmd_vel)
                 else:
                     self.cmd_vel.linear.x = 0.0
                     self.cmd_vel.angular.z = self.kp_w * etheta
                     self.get_logger().info("Rotating")
-                    self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
+                    self.get_logger().info(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
                     if self.cmd_vel.angular.z > 1.5:
+                        self.cmd_vel.angular.z = 1.5
                         self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
+                    elif self.cmd_vel.angular.z < 0.05:
+                        self.cmd_vel.angular.z = 0.05
                     self.cmd_vel_pub.publish(self.cmd_vel)
 
 

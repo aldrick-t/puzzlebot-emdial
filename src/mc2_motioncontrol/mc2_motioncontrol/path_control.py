@@ -19,7 +19,7 @@ import sys # To exit the program
 class pathControl(Node):
     def __init__(self):
         super().__init__('square_control')
-        self.wait_for_ros_time()
+        #self.wait_for_ros_time()
 
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
