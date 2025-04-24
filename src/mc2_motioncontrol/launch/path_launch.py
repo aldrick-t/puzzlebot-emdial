@@ -18,21 +18,21 @@ def generate_launch_description():
             package='mc2_motioncontrol',
             executable='path_generator',
             name='path_generator',
-            parameters=[{'use_sim_time': False}, config],
+            parameters=[{'use_sim_time': True}, config],
         )
 
     path_control = Node(
             package='mc2_motioncontrol',
             executable='path_control',
             name='path_control',
-            parameters=[{'use_sim_time': False}, config]
+            parameters=[{'use_sim_time': True}, config]
         )
     
     odometry_node = Node(
             package='mc2_motioncontrol',
             executable='odometry_node',
             name='odometry_node',
-            parameters=[{'use_sim_time': False}]
+            parameters=[{'use_sim_time': True}]
         )
 
     return LaunchDescription([
