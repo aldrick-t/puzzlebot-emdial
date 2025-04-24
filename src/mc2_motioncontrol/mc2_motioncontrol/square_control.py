@@ -36,7 +36,6 @@ class pathControl(Node):
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
-        self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.xg = 0.0 # Goal position x[m]
         self.yg = 0.0 # Goal position y[m]
 
@@ -47,9 +46,10 @@ class pathControl(Node):
 
         self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
         self.kp_w = self.declare_parameter('kp_w', 0.9).get_parameter_value().double_value # Angular velocity gain
+        self.state = 0
 
         self.cmd_vel = Twist()
-        timer_period = 0.05 
+        timer_period = 0.05
         self.create_timer(timer_period, self.main_timer_cb)
         self.get_logger().info("Node initialized!!")
 
@@ -62,22 +62,43 @@ class pathControl(Node):
 
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
-            # Goal Threshold
-            if ed < self.goal_threshold: #Threshold value (tolerance) for goal reached in meters.
-                self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
-                self.get_logger().info(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
-                self.get_logger().info(f"Current theta: {self.theta_r:.2f}")
-                self.get_logger().info(f"Within thresh: {ed:.2f} m")
+            # State Machine to toogle betwen linear and angular velocity
+            ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
+
+            if self.state == 0:
                 self.goal_received = False
                 self.get_logger().debug(f"Goal received: {self.goal_received}")
                 self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
                 self.get_logger().debug("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
-                
-            else:
-                if np.abs(etheta) < 0.06:
+
+                self.state = 1
+            
+            # th state 1 will move angular to the goal and statet 2 will move linear to the goal
+            if self.state == 1:
+                ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
+                if abs(etheta) > 0.01:
+                    self.cmd_vel.angular.z = self.kp_w * etheta
+                    self.get_logger().info("Rotating")
+                    self.get_logger().info(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
+                    if self.cmd_vel.angular.z > 1.2:
+                        self.cmd_vel.angular.z = 1.2
+                        self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
+                    elif self.cmd_vel.angular.z < 0.08:
+                        self.cmd_vel.angular.z = 0.08
+                    self.cmd_vel_pub.publish(self.cmd_vel)
+                else:
                     self.cmd_vel.angular.z = 0.0
+                    self.cmd_vel.angular.x = 0.0
+                    self.cmd_vel_pub.publish(self.cmd_vel)
+                    self.get_logger().info("Rotating finished")
+                    self.state = 2
+                    self.get_logger().info("Moving to linear state")
+
+            if self.state == 2:
+                ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
+                if abs(ed) > 0.05:
                     self.cmd_vel.linear.x = self.kp_v * ed
                     self.get_logger().info("Moving forward")
                     self.get_logger().info(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
@@ -89,35 +110,18 @@ class pathControl(Node):
                     self.cmd_vel_pub.publish(self.cmd_vel)
                 else:
                     self.cmd_vel.linear.x = 0.0
-                    self.cmd_vel.angular.z = self.kp_w * etheta
-                    self.get_logger().info("Rotating")
-                    self.get_logger().info(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-                    if self.cmd_vel.angular.z > 1.5:
-                        self.cmd_vel.angular.z = 1.5
-                        self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
-                    elif self.cmd_vel.angular.z < 0.05:
-                        self.cmd_vel.angular.z = 0.05
+                    self.cmd_vel.angular.z = 0.0
                     self.cmd_vel_pub.publish(self.cmd_vel)
+                    self.get_logger().info("Moving finished")
+                    self.state = 1
 
+            if self.state == 3:
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.cmd_vel_pub.publish(self.cmd_vel)
+                self.get_logger().info("Stopping")
+                self.get_logger().info("Moving finished")    
 
-                # self.cmd_vel.linear.x = self.kp_v * ed
-
-                # self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
-                # if self.cmd_vel.linear.x > 0.6:
-                #     self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
-                
-                # self.cmd_vel.angular.z = self.kp_w * etheta
-
-                # self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-                # if self.cmd_vel.angular.z > 1.5:
-                #     self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
-
-            self.cmd_vel_pub.publish(self.cmd_vel)
-        else: 
-            self.get_logger().info("Waiting for goal")
-            self.get_logger().debug(f"Goal received: {self.goal_received}")
-
-            
 
     def get_errors(self, xr, yr, xg, yg, theta_r):
         ## This function computes the errors in x and y
@@ -145,6 +149,9 @@ class pathControl(Node):
         self.yg = goal.y
         self.theta_g = goal.theta
         self.goal_received = True
+        if self.xg == 999.0 and self.yg == 999.0:
+            self.state = 3
+            self.get_logger().info("All points have been published. No more points.")
         self.get_logger().info("Goal Received")
 
     def wait_for_ros_time(self):
