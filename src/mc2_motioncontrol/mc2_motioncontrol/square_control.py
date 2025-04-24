@@ -91,14 +91,14 @@ class pathControl(Node):
         elif self.state == 1:
             self.get_logger().info("State 1")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
-            if abs(etheta) > 0.01:
+            if abs(etheta) > 0.05:
                 self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().info("Rotating")
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-                if self.cmd_vel.angular.z > 1.2:
-                    self.cmd_vel.angular.z = 1.2
+                if self.cmd_vel.angular.z > 0.5:
+                    self.cmd_vel.angular.z = 0.8
                     self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
-                elif self.cmd_vel.angular.z < 0.08:
+                elif self.cmd_vel.angular.z < 0.05:
                     self.cmd_vel.angular.z = 0.08
                 self.cmd_vel_pub.publish(self.cmd_vel)
             else:

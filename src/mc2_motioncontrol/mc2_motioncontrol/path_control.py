@@ -93,9 +93,9 @@ class pathControl(Node):
                     self.cmd_vel.angular.x = 0.5 
                 self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-                if self.cmd_vel.angular.z > 1.5:
+                if self.cmd_vel.angular.z > 0.6:
                     self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
-                    self.cmd_vel.angular.z = 1.0 # Consider increasing this limit if safe
+                    self.cmd_vel.angular.z = 0.6 # Consider increasing this limit if safe
 
             self.cmd_vel_pub.publish(self.cmd_vel)
         else: 
