@@ -38,13 +38,6 @@ class PathGenerator(Node):
         # Increment index only after publishing the current point
         if self.index + 1 >= len(self.points):
             self.get_logger().info('Reached end of path, no more points.')
-            msg = Pose2D()
-            msg.x = 999.0
-            msg.y = 999.0
-            msg.theta = 999.0
-
-            self.goal_pub.publish(msg)
-            return
         self.index += 1
         self._publish(self.index)
 
