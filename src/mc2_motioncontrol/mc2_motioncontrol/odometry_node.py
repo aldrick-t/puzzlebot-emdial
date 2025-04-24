@@ -53,17 +53,11 @@ class Odometry(Node):
 
 
     def wl_cb(self, wl):  
-
         ## This function receives the left wheel speed from the encoders  
-
         self.wl = wl.data 
 
-         
-
     def wr_cb(self, wr):  
-
         ## This function receives the right wheel speed from the encoders 
-
         self.wr = wr.data 
     
     def get_robot_velocity(self, wl, wr):
