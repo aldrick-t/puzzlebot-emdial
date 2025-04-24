@@ -44,7 +44,6 @@ class PathGenerator(Node):
             msg.theta = 999.0
 
             self.goal_pub.publish(msg)
-            
             return
         self.index += 1
         self._publish(self.index)
