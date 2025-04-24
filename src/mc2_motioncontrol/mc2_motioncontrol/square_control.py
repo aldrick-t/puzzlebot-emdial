@@ -57,31 +57,32 @@ class pathControl(Node):
 
     def main_timer_cb(self):
         ## This function is called every 0.05 seconds
-        self.get_logger().debug("Timer ahhhh")
+        self.get_logger().info("Timer ahhhh")
         if self.state == 9: #iddle
-            self.get_logger().debug("State 9")
+            self.get_logger().info("State 9")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().debug(f"Goal received: {self.goal_received}")
-                self.get_logger().debug("Requested next goal")
+                self.get_logger().info(f"Goal received: {self.goal_received}")
+                self.get_logger().info("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.state = 1
 
-        if self.state == 0:
+        elif self.state == 0:
+            self.get_logger().info("State 0")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().debug(f"Goal received: {self.goal_received}")
-                self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
-                self.get_logger().debug("Requested next goal")
+                self.get_logger().info(f"Goal received o: {self.goal_received}")
+                self.get_logger().info("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.state = 1
         
         # th state 1 will move angular to the goal and statet 2 will move linear to the goal
-        if self.state == 1:
+        elif self.state == 1:
+            self.get_logger().info("State 1")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
-            if abs(etheta) > 0.01:
+            if abs(etheta) > 0.005:
                 self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().info("Rotating")
                 self.get_logger().info(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
@@ -99,10 +100,12 @@ class pathControl(Node):
                 self.state = 2
                 self.get_logger().info("Moving to linear state")
 
-        if self.state == 2:
+        elif self.state == 2:
+            self.get_logger().info("State 2")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
             if abs(ed) > 0.05:
                 self.cmd_vel.linear.x = self.kp_v * ed
+                #self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().info("Moving forward")
                 self.get_logger().info(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
                 if self.cmd_vel.linear.x > 0.6:
@@ -116,9 +119,11 @@ class pathControl(Node):
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
                 self.get_logger().info("Moving finished")
-                self.state = 1
+                self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
+                self.state = 0
 
-        if self.state == 3:
+        elif self.state == 3:
+            self.get_logger().info("State 3")
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
@@ -135,7 +140,7 @@ class pathControl(Node):
         etheta = thetag - theta_r
         # Normalize the angle to be between -pi and pi
         etheta = np.arctan2(np.sin(etheta), np.cos(etheta))
-        # Debug prints
+        # info prints
         self.get_logger().info(f"Distance to goal: {ed:.2f} m")
         self.get_logger().info(f"Angle to goal: {etheta:.2f} rad")
         return ed, etheta
@@ -153,7 +158,7 @@ class pathControl(Node):
         self.theta_g = goal.theta
         self.goal_received = True
         
-        self.get_logger().info("Goal Received")
+        self.get_logger().info("Goal Received cb")
 
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')
