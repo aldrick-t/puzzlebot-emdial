@@ -1,9 +1,10 @@
 '''
 Path Generator Node, publishes goal points to the /goal topic.
 Recieves all goal points from user defined parameters.
-The path is defined in a 2D coordinate system.
+The path is defined in a 2D coordinate system by Pose2D messages.
+The path is defined by a list of x,y coordinates.
+Theta in Pose2D is set to 0.0 by default.
 Recieves trigger messages on /next_goal to publish the next point.
-Decides control mode and gains.
 '''
 
 import rclpy
@@ -14,7 +15,7 @@ from geometry_msgs.msg import Pose2D
 class PathGenerator(Node):
     def __init__(self):
         super().__init__('path_generator')
-        # load parameters...
+        # load parameters
         raw = self.declare_parameter('path_points', [0.0, 0.0]).value
         if len(raw) % 2 != 0:
             self.get_logger().fatal('path_points must have an even number of elements (x,y pairs)')
