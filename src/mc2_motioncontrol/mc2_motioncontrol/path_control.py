@@ -36,7 +36,7 @@ class pathControl(Node):
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
-        self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
+        # self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.xg = 0.0 # Goal position x[m]
         self.yg = 0.0 # Goal position y[m]
 
@@ -55,6 +55,9 @@ class pathControl(Node):
         timer_period = 0.05 
         self.create_timer(timer_period, self.main_timer_cb)
         self.get_logger().info("Node initialized!!")
+
+        self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
+        self.get_logger().info("Requested first Goal")
 
     def main_timer_cb(self):
         ## This function is called every 0.05 seconds
@@ -80,10 +83,10 @@ class pathControl(Node):
             else:
                 self.cmd_vel.linear.x = self.kp_v * ed
                 #limit the linear velocity to a maximum of 0.6 m/s
-                if self.cmd_vel.linear.x > 0.7:
-                    self.cmd_vel.linear.x = 0.6
+                if self.cmd_vel.linear.x > 0.5:
+                    self.cmd_vel.linear.x = 0.5
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
-                if self.cmd_vel.linear.x > 0.6:
+                if self.cmd_vel.linear.x > 0.5:
                     self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
                 self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
