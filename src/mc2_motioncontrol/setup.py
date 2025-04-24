@@ -28,6 +28,7 @@ setup(
             'odometry_node = mc2_motioncontrol.odometry_node:main',
             'path_generator = mc2_motioncontrol.path_generator:main',
             'square_control = mc2_motioncontrol.square_control:main',
+            'go_to_goal = mc2_motioncontrol.go_to_goal:main',
         ],
     },
 )
