@@ -46,7 +46,7 @@ class pathControl(Node):
 
         self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
         self.kp_w = self.declare_parameter('kp_w', 0.9).get_parameter_value().double_value # Angular velocity gain
-        self.state = 9
+        self.state = 0
 
         self.cmd_vel = Twist()
         timer_period = 0.05
@@ -69,9 +69,10 @@ class pathControl(Node):
                 self.state = 1
 
         if self.state == 0:
+            self.get_logger().debug("State 0")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().debug(f"Goal received: {self.goal_received}")
+                self.get_logger().debug(f"Goal received o: {self.goal_received}")
                 self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
                 self.get_logger().debug("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
@@ -80,6 +81,7 @@ class pathControl(Node):
         
         # th state 1 will move angular to the goal and statet 2 will move linear to the goal
         if self.state == 1:
+            self.get_logger().debug("State 1")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
             if abs(etheta) > 0.01:
                 self.cmd_vel.angular.z = self.kp_w * etheta
@@ -100,6 +102,7 @@ class pathControl(Node):
                 self.get_logger().info("Moving to linear state")
 
         if self.state == 2:
+            self.get_logger().debug("State 2")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
             if abs(ed) > 0.05:
                 self.cmd_vel.linear.x = self.kp_v * ed
@@ -119,6 +122,7 @@ class pathControl(Node):
                 self.state = 1
 
         if self.state == 3:
+            self.get_logger().debug("State 3")
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
@@ -153,7 +157,7 @@ class pathControl(Node):
         self.theta_g = goal.theta
         self.goal_received = True
         
-        self.get_logger().info("Goal Received")
+        self.get_logger().info("Goal Received cb")
 
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')
