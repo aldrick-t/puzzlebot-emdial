@@ -6,6 +6,7 @@ Goal points are set via params.
 '''
 
 import rclpy
+import rclpy.logging
 from rclpy.node import Node
 from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import Pose2D
@@ -46,23 +47,30 @@ class pathControl(Node):
 
         self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
         self.kp_w = self.declare_parameter('kp_w', 0.9).get_parameter_value().double_value # Angular velocity gain
+        
         self.state = 9
+
+        #logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        self.get_logger().debug("Logger set to DEBUG level")
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
 
         self.cmd_vel = Twist()
         timer_period = 0.05
         self.create_timer(timer_period, self.main_timer_cb)
-        self.get_logger().info("Node initialized!!")
+        self.get_logger().info("Controller initialized!")
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
+        self.get_logger().info("Requested Initial Goal")
 
 
     def main_timer_cb(self):
         ## This function is called every 0.05 seconds
-        self.get_logger().info("Timer ahhhh")
-        if self.state == 9: #iddle
+        self.get_logger().debug("Timer ahhhh")
+        if self.state == 9: #idle
             self.get_logger().info("State 9")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().info(f"Goal received: {self.goal_received}")
+                self.get_logger().debug(f"Goal received @9: {self.goal_received}")
                 self.get_logger().info("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
@@ -72,7 +80,7 @@ class pathControl(Node):
             self.get_logger().info("State 0")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().info(f"Goal received o: {self.goal_received}")
+                self.get_logger().debug(f"Goal received @0: {self.goal_received}")
                 self.get_logger().info("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
@@ -85,7 +93,7 @@ class pathControl(Node):
             if abs(etheta) > 0.01:
                 self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().info("Rotating")
-                self.get_logger().info(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
+                self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
                 if self.cmd_vel.angular.z > 1.2:
                     self.cmd_vel.angular.z = 1.2
                     self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
@@ -107,7 +115,7 @@ class pathControl(Node):
                 self.cmd_vel.linear.x = self.kp_v * ed
                 #self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().info("Moving forward")
-                self.get_logger().info(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
+                self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
                 if self.cmd_vel.linear.x > 0.6:
                     self.cmd_vel.linear.x = 0.6
                     self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
@@ -158,7 +166,7 @@ class pathControl(Node):
         self.theta_g = goal.theta
         self.goal_received = True
         
-        self.get_logger().info("Goal Received cb")
+        self.get_logger().debug("Goal Received CB")
 
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')

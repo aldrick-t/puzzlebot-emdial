@@ -6,11 +6,11 @@ Goal points are set via params.
 '''
 
 import rclpy
+import rclpy.logging
 from rclpy.node import Node
 from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import Pose2D
-import rclpy.parameter
-from std_msgs.msg import Bool, Empty
+from std_msgs.msg import Empty
 from geometry_msgs.msg import Twist
 import numpy as np
 import signal # To handle Ctrl+C
@@ -18,8 +18,8 @@ import sys # To exit the program
 
 class pathControl(Node):
     def __init__(self):
-        super().__init__('square_control')
-        #self.wait_for_ros_time()
+        super().__init__('path_control')
+        self.wait_for_ros_time()
 
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
@@ -29,6 +29,11 @@ class pathControl(Node):
         # Handle shutdown gracefully
         signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
 
+        #logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        self.get_logger().debug("Logger set to DEBUG level")
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
+
         # Declare parameters
         self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
         self.goal_threshold = self.declare_parameter('goal_threshold', 0.05).get_parameter_value().double_value
@@ -36,7 +41,6 @@ class pathControl(Node):
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
-        # self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.xg = 0.0 # Goal position x[m]
         self.yg = 0.0 # Goal position y[m]
 
@@ -47,9 +51,6 @@ class pathControl(Node):
 
         self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
         self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
-
-        # self.ed = 0.0 # Error in x[m]
-        # self.etheta = 0.0 # Error in y[m]
         
         self.cmd_vel = Twist()
         timer_period = 0.05 
@@ -71,9 +72,9 @@ class pathControl(Node):
             # Goal Threshold
             if ed < self.goal_threshold: #Threshold value (tolerance) for goal reached in meters.
                 self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
-                self.get_logger().info(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
-                self.get_logger().info(f"Current theta: {self.theta_r:.2f}")
-                self.get_logger().info(f"Within thresh: {ed:.2f} m")
+                self.get_logger().debug(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
+                self.get_logger().debug(f"Current theta: {self.theta_r:.2f}")
+                self.get_logger().debug(f"Within thresh: {ed:.2f} m")
                 self.goal_received = False
                 self.get_logger().debug(f"Goal received: {self.goal_received}")
                 self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
@@ -82,7 +83,7 @@ class pathControl(Node):
                 self.cmd_vel.angular.z = 0.0
             else:
                 self.cmd_vel.linear.x = self.kp_v * ed
-                #limit the linear velocity to a maximum of 0.6 m/s
+                #limit the linear velocity to a maximum of 0.5 m/s
                 if self.cmd_vel.linear.x > 0.5:
                     self.cmd_vel.linear.x = 0.5
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
@@ -110,8 +111,8 @@ class pathControl(Node):
         # Normalize the angle to be between -pi and pi
         etheta = np.arctan2(np.sin(etheta), np.cos(etheta))
         # Debug prints
-        self.get_logger().info(f"Distance to goal: {ed:.2f} m")
-        self.get_logger().info(f"Angle to goal: {etheta:.2f} rad")
+        self.get_logger().debug(f"Distance to goal: {ed:.2f} m")
+        self.get_logger().debug(f"Angle to goal: {etheta:.2f} rad")
         return ed, etheta
 
     def pose_cb(self, pose): 

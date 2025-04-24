@@ -8,6 +8,7 @@ Recieves trigger messages on /next_goal to publish the next point.
 '''
 
 import rclpy
+import rclpy.logging
 from rclpy.node import Node
 from std_msgs.msg import Empty
 from geometry_msgs.msg import Pose2D
@@ -15,6 +16,11 @@ from geometry_msgs.msg import Pose2D
 class PathGenerator(Node):
     def __init__(self):
         super().__init__('path_generator')
+        #logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        self.get_logger().debug("Logger set to DEBUG level")
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
+
         # load parameters
         raw = self.declare_parameter('path_points', [0.0, 0.0]).value
         if len(raw) % 2 != 0:
