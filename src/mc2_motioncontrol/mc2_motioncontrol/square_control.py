@@ -82,7 +82,7 @@ class pathControl(Node):
         elif self.state == 1:
             self.get_logger().info("State 1")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
-            if abs(etheta) > 0.005:
+            if abs(etheta) > 0.01:
                 self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().info("Rotating")
                 self.get_logger().info(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
@@ -103,7 +103,7 @@ class pathControl(Node):
         elif self.state == 2:
             self.get_logger().info("State 2")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
-            if abs(ed) > 0.05:
+            if abs(ed) > 0.1:
                 self.cmd_vel.linear.x = self.kp_v * ed
                 #self.cmd_vel.angular.z = self.kp_w * etheta
                 self.get_logger().info("Moving forward")
