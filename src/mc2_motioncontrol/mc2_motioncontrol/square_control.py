@@ -57,31 +57,31 @@ class pathControl(Node):
 
     def main_timer_cb(self):
         ## This function is called every 0.05 seconds
-        self.get_logger().debug("Timer ahhhh")
+        self.get_logger().info("Timer ahhhh")
         if self.state == 9: #iddle
-            self.get_logger().debug("State 9")
+            self.get_logger().info("State 9")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().debug(f"Goal received: {self.goal_received}")
-                self.get_logger().debug("Requested next goal")
+                self.get_logger().info(f"Goal received: {self.goal_received}")
+                self.get_logger().info("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.state = 1
 
         if self.state == 0:
-            self.get_logger().debug("State 0")
+            self.get_logger().info("State 0")
             if self.goal_received:
                 self.goal_received = False
-                self.get_logger().debug(f"Goal received o: {self.goal_received}")
+                self.get_logger().info(f"Goal received o: {self.goal_received}")
                 self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
-                self.get_logger().debug("Requested next goal")
+                self.get_logger().info("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.state = 1
         
         # th state 1 will move angular to the goal and statet 2 will move linear to the goal
         if self.state == 1:
-            self.get_logger().debug("State 1")
+            self.get_logger().info("State 1")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
             if abs(etheta) > 0.01:
                 self.cmd_vel.angular.z = self.kp_w * etheta
@@ -102,7 +102,7 @@ class pathControl(Node):
                 self.get_logger().info("Moving to linear state")
 
         if self.state == 2:
-            self.get_logger().debug("State 2")
+            self.get_logger().info("State 2")
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
             if abs(ed) > 0.05:
                 self.cmd_vel.linear.x = self.kp_v * ed
@@ -122,7 +122,7 @@ class pathControl(Node):
                 self.state = 1
 
         if self.state == 3:
-            self.get_logger().debug("State 3")
+            self.get_logger().info("State 3")
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
@@ -139,7 +139,7 @@ class pathControl(Node):
         etheta = thetag - theta_r
         # Normalize the angle to be between -pi and pi
         etheta = np.arctan2(np.sin(etheta), np.cos(etheta))
-        # Debug prints
+        #.info prints
         self.get_logger().info(f"Distance to goal: {ed:.2f} m")
         self.get_logger().info(f"Angle to goal: {etheta:.2f} rad")
         return ed, etheta
