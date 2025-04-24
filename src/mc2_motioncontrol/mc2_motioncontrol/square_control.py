@@ -84,7 +84,6 @@ class pathControl(Node):
                         self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
                     self.cmd_vel_pub.publish(self.cmd_vel)
                 else:
-
                     self.cmd_vel.linear.x = 0.0
                     self.cmd_vel.angular.z = self.kp_w * etheta
                     self.get_logger().info("Rotating")

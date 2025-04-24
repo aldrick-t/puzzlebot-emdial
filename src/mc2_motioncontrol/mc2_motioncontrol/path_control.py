@@ -45,8 +45,8 @@ class pathControl(Node):
         self.yr = 0.0 # Robot position y[m]
         self.theta_r = 0.0 # Robot orientation [rad]
 
-        self.kp_v = self.declare_parameter('kp_v', 0.5).get_parameter_value().double_value # Linear velocity gain
-        self.kp_w = self.declare_parameter('kp_w', 1.0).get_parameter_value().double_value # Angular velocity gain
+        self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
+        self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
 
         # self.ed = 0.0 # Error in x[m]
         # self.etheta = 0.0 # Error in y[m]
@@ -79,6 +79,9 @@ class pathControl(Node):
                 self.cmd_vel.angular.z = 0.0
             else:
                 self.cmd_vel.linear.x = self.kp_v * ed
+                #limit the linear velocity to a maximum of 0.6 m/s
+                if self.cmd_vel.linear.x > 0.7:
+                    self.cmd_vel.linear.x = 0.6
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
                 if self.cmd_vel.linear.x > 0.6:
                     self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
