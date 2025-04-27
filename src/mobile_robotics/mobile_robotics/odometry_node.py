@@ -1,99 +1,108 @@
-#!/usr/bin/env python3 
-import rclpy 
-from rclpy.node import Node 
-from geometry_msgs.msg import Pose2D 
-from std_msgs.msg import Float32 
-from rclpy import qos 
-import numpy as np 
+"""
+Aux node for localization
+Odometry node for robot localization using wheel encoders
+This node subscribes to the left and right wheel encoder topics
+and computes the robot's pose (x, y, theta) using odometry equations.
+It publishes the pose to the /pose topic.
+"""
 
-#This class will compute the pose of the robot from the encoder readings. 
-# This node subscribes to the /VelocityEncR and /VelocityEncL topics 
-# This node publishes the pose of the robot to the /pose topic.  
-class Odometry(Node):  
-    def __init__(self):  
-        super().__init__('odometry_node') 
+import rclpy
+import rclpy.logging
+from rclpy.node import Node
+from geometry_msgs.msg import Pose2D
+from std_msgs.msg import Float32
+from rclpy import qos
+import numpy as np
 
-        ###########  INIT PUBLISHERS ################ 
-        self.pub_pose = self.create_publisher(Pose2D, 'pose', 10)  
+class Odometry(Node):
 
-        ############## SUBSCRIBERS ##################  
-        self.create_subscription(Float32, "VelocityEncR",  self.wr_cb, qos.qos_profile_sensor_data)  
-        self.create_subscription(Float32, "VelocityEncL",  self.wl_cb, qos.qos_profile_sensor_data)  
+    def __init__(self):
+        super().__init__('odometry_node')
 
-        ############ ROBOT CONSTANTS ################  
-        self.r=0.05 #wheel radius for our simulated robot[m] 
-        self.L=0.174 #wheel separation for our simulated robot [m] 
-        self.wl = 0.0 #Left wheel speed [rad/s] 
-        self.wr = 0.0 #Right wheel speed [rad/s] 
-        self.x = 0.0 #Robot position in x-axis [m] 
-        self.y = 0.0 #Robot position in y-axis [m] 
-        self.theta = 0.0 #Robot orientation [rad] 
-        self.robot_pose = Pose2D() 
+        ############## PUBLISHERS ################
+        self.pub_pose = self.create_publisher(Pose2D, 'pose', 10)
 
-        self.prev_time_ns = self.get_clock().now().nanoseconds # Initialize the previous time to the current time
-        timer_period = 0.05 
-        self.create_timer(timer_period, self.main_timer_cb) 
-        self.get_logger().info("Node initialized!!") 
+        ############## SUBSCRIBERS ################
+        self.create_subscription(Float32, "VelocityEncR", self.wr_cb, qos.qos_profile_sensor_data)
+        self.create_subscription(Float32, "VelocityEncL", self.wl_cb, qos.qos_profile_sensor_data)
 
- 
-    def main_timer_cb(self): 
-        v,w = self.get_robot_velocity(self.wl, self.wr) #get the robot's speed
-        self.update_robot_pose(v,w) #update the robot's pose
+        ############## ROBOT CONSTANTS ################
+        self.r = 0.05  # Wheel radius [m] -> Will be calibrated if needed
+        self.L = 0.19  # Wheel separation [m] -> Will be calibrated if needed
 
-        # Print the robot's pose
-        self.get_logger().info("Robot's pose: x = %.2f m, y = %.2f m, theta = %.2f rad" % (self.x, self.y, self.theta))
+        self.wl = 0.0  # Filtered Left wheel speed [rad/s]
+        self.wr = 0.0  # Filtered Right wheel speed [rad/s]
+
+        self.x = 0.0  # Robot x position [m]
+        self.y = 0.0  # Robot y position [m]
+        self.theta = 0.0  # Robot orientation [rad]
+
+        # Logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG)
+
+        self.robot_pose = Pose2D()
+        self.prev_time_ns = self.get_clock().now().nanoseconds
+
+        timer_period = 0.05  # 20 Hz update
+        self.create_timer(timer_period, self.main_timer_cb)
+        self.get_logger().info("Odometry Initialized!")
+
+    def main_timer_cb(self):
+        now_ns = self.get_clock().now().nanoseconds
+        dt = 0.05 #(now_ns - self.prev_time_ns) * 1e-9  # Calculate dt in seconds
+        self.prev_time_ns = now_ns  # Update time at the beginning of the callback
+
+        v, w = self.get_robot_velocity(self.wl, self.wr)
+        self.update_robot_pose(v, w, dt)
 
         # Publish the robot's pose
         self.pub_pose.publish(self.robot_pose)
 
+        # Optional: Debug print
+        print(f"Pose :)-> x: {self.robot_pose.x:.3f}, y: {self.robot_pose.y:.3f}, theta: {np.degrees(self.robot_pose.theta):.2f}°")
 
-    def wl_cb(self, wl):  
-        ## This function receives the left wheel speed from the encoders  
-        self.wl = wl.data 
+    def wl_cb(self, wl_msg):
+        # Apply a simple low-pass filter to reduce noise
+        self.wl = 0.8 * self.wl + 0.2 * wl_msg.data
 
-
-    def wr_cb(self, wr):  
-        ## This function receives the right wheel speed from the encoders 
-        self.wr = wr.data 
-
+    def wr_cb(self, wr_msg):
+        # Apply a simple low-pass filter to reduce noise
+        self.wr = 0.8 * self.wr + 0.2 * wr_msg.data
 
     def get_robot_velocity(self, wl, wr):
-        ## This function computes the robot's speed from the wheel speeds 
-        # Compute the robot's linear speed using cinematic diferential model [m/s]
-        v = self.r * (wl + wr) / 2.0 
-        # Compute the robot's angular speed [rad/s]
+        # Calculate linear and angular velocities
+        v = self.r * (wr + wl) / 2.0
         w = self.r * (wr - wl) / self.L
-        self.get_logger().info("Robot's speed: v = %.2f m/s, w = %.2f rad/s" % (v, w))
-        return v, w
-    
 
-    def update_robot_pose(self, v, w):
-        ## This function updates the robot's pose using the wheel speeds 
-        # Compute the robot's new position using the odometry model
-        dt = (self.get_clock().now().nanoseconds - self.prev_time_ns)*1e-9 # Delta time in seconds
-        self.x = self.x + v * np.cos(self.theta) * dt
-        self.y = self.y + v * np.sin(self.theta) * dt
-        self.theta = self.theta + w * dt
-        # Normalize the angle to be in the range [-pi, pi]
-        # This is done to avoid the angle to grow indefinitely
+        # Optional: Debug print
+        print(f"v: {v:.4f} m/s, w: {w:.4f} rad/s")
+        return v, w
+
+    def update_robot_pose(self, v, w, dt):
+        # Use exact integration for better precision
+        if abs(w) < 1e-6:  # If angular velocity is very small (almost straight motion)
+            self.x += v * np.cos(self.theta) * dt
+            self.y += v * np.sin(self.theta) * dt
+        else:  # Robot is turning
+            self.x += (v/w) * (np.sin(self.theta + w*dt) - np.sin(self.theta))
+            self.y -= (v/w) * (np.cos(self.theta + w*dt) - np.cos(self.theta))
+            self.theta += w * dt
+
+        # Normalize theta between [-pi, pi]
         self.theta = np.arctan2(np.sin(self.theta), np.cos(self.theta))
 
-        # Fill the robot Pose2d() message
+        # Update the pose message
         self.robot_pose.x = self.x
         self.robot_pose.y = self.y
         self.robot_pose.theta = self.theta
 
-        # Update the previous time
-        self.prev_time_ns = self.get_clock().now().nanoseconds
+def main(args=None):
+    rclpy.init(args=args)
+    my_node = Odometry()
+    rclpy.spin(my_node)
+    my_node.destroy_node()
+    rclpy.shutdown()
 
-
-def main(args=None): 
-    rclpy.init(args=args) 
-    my_node=Odometry() 
-    rclpy.spin(my_node) 
-    my_node.destroy_node() 
-    rclpy.shutdown() 
-
-
-if __name__ == '__main__': 
+if __name__ == '__main__':
     main()
