@@ -30,6 +30,7 @@ setup(
             'odometry_node = mcHT_trafficlight.odometry_node:main',
             'square_control = mcHT_trafficlight.square_control:main',
             'go_to_goal = mcHT_trafficlight.go_to_goal:main',
+            'cv_decision_making = mcHT_trafficlight.cv_decision_making:main', 
         ],
     },
 )
