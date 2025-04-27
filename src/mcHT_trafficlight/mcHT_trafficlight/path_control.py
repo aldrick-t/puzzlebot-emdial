@@ -36,7 +36,7 @@ class pathControl(Node):
 
         # Declare parameters
         self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.goal_threshold = self.declare_parameter('goal_threshold', 0.05).get_parameter_value().double_value
+        self.goal_threshold = self.declare_parameter('goal_threshold', 0.03).get_parameter_value().double_value
 
         self.add_on_set_parameters_callback(self.parameter_callback)
 
@@ -51,18 +51,22 @@ class pathControl(Node):
 
         # self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
         # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
-        self.kp_v = 0.5  # Ganancia proporcional lineal
-        self.ki_v = 0.1  # Ganancia integral lineal
+        
+        # Control gains
+        self.kp_v = 0.5
+        self.ki_v = 0.1
+        self.kp_w = 1.0
+        self.ki_w = 0.2
 
-        self.kp_w = 1.0  # Ganancia proporcional angular
-        self.ki_w = 0.2  # Ganancia integral angular
+        # Limits for integrals (anti-windup)
+        self.integral_error_d_max = 1.0
+        self.integral_error_theta_max = 1.0
 
-        # Errores integrales
+        # Error variables
         self.integral_error_d = 0.0
         self.integral_error_theta = 0.0
-        
 
-        # Tiempo
+        # Time
         self.last_time = self.get_clock().now()
 
         self.cmd_vel = Twist()
@@ -74,30 +78,38 @@ class pathControl(Node):
         self.get_logger().info("Requested first Goal")
 
     def main_timer_cb(self):
-        # Tiempo actual y delta tiempo
         now = self.get_clock().now()
-        dt = (now - self.last_time).nanoseconds * 1e-9  # segundos
+        dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now
 
         if self.goal_received:
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
-            # Actualizar integrales
-            self.integral_error_d += ed * dt
-            self.integral_error_theta += etheta * dt
+            # Update integrals ONLY if error is not too small
+            if abs(ed) > 0.01:
+                self.integral_error_d += ed * dt
+                self.integral_error_d = np.clip(self.integral_error_d, -self.integral_error_d_max, self.integral_error_d_max)
+            else:
+                self.integral_error_d = 0.0  # Reset if error is small
 
-            # Control de velocidades usando PI
+            if abs(etheta) > 0.005:
+                self.integral_error_theta += etheta * dt
+                self.integral_error_theta = np.clip(self.integral_error_theta, -self.integral_error_theta_max, self.integral_error_theta_max)
+            else:
+                self.integral_error_theta = 0.0  # Reset if error is small
+
+            # PI control for linear and angular velocity
             v = self.kp_v * ed + self.ki_v * self.integral_error_d
             w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
 
-            # Saturaciones
-            v = np.clip(v, 0.0, 0.5)  # por ejemplo
+            # Saturate speeds
+            v = np.clip(v, 0.0, 0.5)
             w = np.clip(w, -1.5, 1.5)
 
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
 
-            # Umbral de llegada
+            # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
                 self.goal_received = False
@@ -105,7 +117,7 @@ class pathControl(Node):
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
 
-                # Resetear integrales
+                # Reset integrals
                 self.integral_error_d = 0.0
                 self.integral_error_theta = 0.0
 

@@ -14,7 +14,7 @@ path_control:
     kp_v: 0.2 #Linear velocity gain
     kp_w: 1.2 #Angular velocity gain
     #Tolerance Threshold
-    goal_threshold: 0.05 
+    goal_threshold: 0.02 
     #Maximum velocities
     max_v: 0.5 #Max velocity
     max_w: 1.0 #Max angular velocity
