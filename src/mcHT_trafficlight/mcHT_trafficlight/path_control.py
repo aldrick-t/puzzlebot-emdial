@@ -49,9 +49,22 @@ class pathControl(Node):
         self.yr = 0.0 # Robot position y[m]
         self.theta_r = 0.0 # Robot orientation [rad]
 
-        self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
-        self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
+        # self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
+        # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
+        self.kp_v = 0.5  # Ganancia proporcional lineal
+        self.ki_v = 0.1  # Ganancia integral lineal
+
+        self.kp_w = 1.0  # Ganancia proporcional angular
+        self.ki_w = 0.2  # Ganancia integral angular
+
+        # Errores integrales
+        self.integral_error_d = 0.0
+        self.integral_error_theta = 0.0
         
+
+        # Tiempo
+        self.last_time = self.get_clock().now()
+
         self.cmd_vel = Twist()
         timer_period = 0.05 
         self.create_timer(timer_period, self.main_timer_cb)
@@ -61,43 +74,86 @@ class pathControl(Node):
         self.get_logger().info("Requested first Goal")
 
     def main_timer_cb(self):
-        ## This function is called every 0.05 seconds
+        # Tiempo actual y delta tiempo
+        now = self.get_clock().now()
+        dt = (now - self.last_time).nanoseconds * 1e-9  # segundos
+        self.last_time = now
+
         if self.goal_received:
-
-            self.get_logger().info("Goal received")
-            self.get_logger().info(f"Moving to goal: x={self.xg:.2f}, y={self.yg:.2f}")
-
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
-            # Goal Threshold
-            if ed < self.goal_threshold: #Threshold value (tolerance) for goal reached in meters.
-                self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
-                self.get_logger().debug(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
-                self.get_logger().debug(f"Current theta: {self.theta_r:.2f}")
-                self.get_logger().debug(f"Within thresh: {ed:.2f} m")
+            # Actualizar integrales
+            self.integral_error_d += ed * dt
+            self.integral_error_theta += etheta * dt
+
+            # Control de velocidades usando PI
+            v = self.kp_v * ed + self.ki_v * self.integral_error_d
+            w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
+
+            # Saturaciones
+            v = np.clip(v, 0.0, 0.5)  # por ejemplo
+            w = np.clip(w, -1.5, 1.5)
+
+            self.cmd_vel.linear.x = v
+            self.cmd_vel.angular.z = w
+
+            # Umbral de llegada
+            if ed < self.goal_threshold:
+                self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
                 self.goal_received = False
-                self.get_logger().debug(f"Goal received: {self.goal_received}")
-                self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
-                self.get_logger().debug("Requested next goal")
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
-            else:
-                self.cmd_vel.linear.x = self.kp_v * ed
-                #limit the linear velocity to a maximum of 0.5 m/s
-                if self.cmd_vel.linear.x > 0.5:
-                    self.cmd_vel.linear.x = 0.5
-                self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
-                if self.cmd_vel.linear.x > 0.5:
-                    self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
-                self.cmd_vel.angular.z = self.kp_w * etheta
-                self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-                if self.cmd_vel.angular.z > 1.5:
-                    self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
+                self.cmd_vel_pub.publish(self.cmd_vel)
+
+                # Resetear integrales
+                self.integral_error_d = 0.0
+                self.integral_error_theta = 0.0
+
+                self.next_goal_pub.publish(Empty())
+                return
 
             self.cmd_vel_pub.publish(self.cmd_vel)
-        else: 
+
+        else:
             self.get_logger().info("Waiting for goal")
-            self.get_logger().debug(f"Goal received: {self.goal_received}")
+
+        # ## This function is called every 0.05 seconds
+        # if self.goal_received:
+
+        #     self.get_logger().info("Goal received")
+        #     self.get_logger().info(f"Moving to goal: x={self.xg:.2f}, y={self.yg:.2f}")
+
+        #     ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
+
+        #     # Goal Threshold
+        #     if ed < self.goal_threshold: #Threshold value (tolerance) for goal reached in meters.
+        #         self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
+        #         self.get_logger().debug(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
+        #         self.get_logger().debug(f"Current theta: {self.theta_r:.2f}")
+        #         self.get_logger().debug(f"Within thresh: {ed:.2f} m")
+        #         self.goal_received = False
+        #         self.get_logger().debug(f"Goal received: {self.goal_received}")
+        #         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
+        #         self.get_logger().debug("Requested next goal")
+        #         self.cmd_vel.linear.x = 0.0
+        #         self.cmd_vel.angular.z = 0.0
+        #     else:
+        #         self.cmd_vel.linear.x = self.kp_v * ed
+        #         #limit the linear velocity to a maximum of 0.5 m/s
+        #         if self.cmd_vel.linear.x > 0.5:
+        #             self.cmd_vel.linear.x = 0.5
+        #         self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
+        #         if self.cmd_vel.linear.x > 0.5:
+        #             self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
+        #         self.cmd_vel.angular.z = self.kp_w * etheta
+        #         self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
+        #         if self.cmd_vel.angular.z > 1.5:
+        #             self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
+
+        #     self.cmd_vel_pub.publish(self.cmd_vel)
+        # else: 
+        #     self.get_logger().info("Waiting for goal")
+        #     self.get_logger().debug(f"Goal received: {self.goal_received}")
 
             
 
