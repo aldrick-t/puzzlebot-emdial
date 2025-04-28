@@ -26,6 +26,7 @@ setup(
             'move_fwd_dist = mobile_robotics.move_fwd_dist:main',
             'odometry_node = mobile_robotics.odometry_node:main',
             'go_to_goal = mobile_robotics.go_to_goal:main',
+            'color_detector = mobile_robotics.color_detector:main', 
         ],
     },
 )
