@@ -18,7 +18,7 @@ class CVExample(Node):
         super().__init__('color_detector') 
         self.bridge = CvBridge() 
 
-        self.sub = self.create_subscription(Image, 'camera', self.camera_callback, 10) 
+        self.sub = self.create_subscription(Image, 'video_source/raw', self.camera_callback, 10) 
         self.pub = self.create_publisher(Image, 'processed_img', 10) 
          
         self.image_received_flag = False #This flag is to ensure we received at least one image  
