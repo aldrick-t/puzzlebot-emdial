@@ -31,3 +31,5 @@
 
 # Docker files
 Dockerfile
+.devcontainer
+.devcontainer/
