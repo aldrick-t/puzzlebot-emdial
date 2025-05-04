@@ -29,3 +29,5 @@
 *.swo
 *.~undo-tree~
 
+# Docker files
+Dockerfile
