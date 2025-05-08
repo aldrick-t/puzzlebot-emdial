@@ -29,6 +29,12 @@
 *.swo
 *.~undo-tree~
 
+<<<<<<< HEAD
+# Docker files
+Dockerfile
+.devcontainer
+.devcontainer/
+=======
 
 
 
@@ -38,3 +44,4 @@
 # User specific
 /src/puzzlebot_gazebo/worlds/color_balls.sdf
 
+>>>>>>> origin/dev_HT
