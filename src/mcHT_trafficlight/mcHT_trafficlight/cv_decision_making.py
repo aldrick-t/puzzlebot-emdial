@@ -1,9 +1,5 @@
-#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from rcl_interfaces.msg import SetParametersResult
-from rclpy.logging import LoggingSeverity
-
 import cv2
 import numpy as np
 from cv_bridge import CvBridge
@@ -11,158 +7,109 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
 
-class ColorDetectorNode(Node):
+class CVExample(Node):
     def __init__(self):
         super().__init__('color_detector')
-        # --- DEBUG logging ---
-        self.get_logger().set_level(LoggingSeverity.DEBUG)
-        self.get_logger().debug('Initializing ColorDetectorNode')
-
-        # --- declare tunable parameters ---
-        self.declare_parameter('min_area', 300)
-        default_ranges = {
-            'RED1':   {'low': [0,100,100],   'high': [10,255,255]},
-            'RED2':   {'low': [160,100,100], 'high': [180,255,255]},
-            'YELLOW': {'low': [18,100,100],  'high': [30,255,255]},
-            'GREEN':  {'low': [40,40,40],    'high': [80,255,255]},
-        }
-        for name, bounds in default_ranges.items():
-            self.declare_parameter(f'hsv_ranges.{name}.low',  bounds['low'])
-            self.declare_parameter(f'hsv_ranges.{name}.high', bounds['high'])
-
-        # load into local storage
-        self._load_params()
-
-        # watch for dynamic changes
-        self.add_on_set_parameters_callback(self._on_parameter_change)
-
-        # --- CV / ROS setup ---
         self.bridge = CvBridge()
-        self.sub = self.create_subscription(
-            Image, '/video_source/raw', self.camera_callback, 10
-        )
-        self.img_pub = self.create_publisher(Image,  'processed_img',        10)
-        self.col_pub = self.create_publisher(String, 'traffic_light_color', 10)
 
-        # OpenCV windows
-        cv2.namedWindow('Contours', cv2.WINDOW_NORMAL)
-        cv2.namedWindow('Swatches', cv2.WINDOW_NORMAL)
-        self.swatch_img = self._make_swatch_image()
+        self.sub = self.create_subscription(Image, 'camera', self.camera_callback, 10) # camera || ideo_source/raw
+        self.pub = self.create_publisher(Image, 'processed_img', 10) # Publisher for processed image
+        self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)  # New publisher for traffic light color
 
-    def _load_params(self):
-        # reload min_area
-        self.min_area = self.get_parameter('min_area').value
-        self.get_logger().debug(f'Loaded parameter min_area = {self.min_area}')
+        self.image_received_flag = False
+        dt = 0.1
+        self.timer = self.create_timer(dt, self.timer_callback)
+        self.get_logger().info('ros_color_tracker Node started')
 
-        # reload HSV ranges
-        self.hsv_ranges = {}
-        for name in ['RED1','RED2','YELLOW','GREEN']:
-            low  = self.get_parameter(f'hsv_ranges.{name}.low').value
-            high = self.get_parameter(f'hsv_ranges.{name}.high').value
-            self.hsv_ranges[name] = {
-                'low':  np.array(low,  dtype=np.uint8),
-                'high': np.array(high, dtype=np.uint8)
-            }
-            self.get_logger().debug(f'Loaded {name} → low={low}, high={high}')
-
-    def _on_parameter_change(self, params):
-        # any change to our declared params triggers reload
-        self.get_logger().debug('Parameter change detected, reloading...')
+    def camera_callback(self, msg):
         try:
-            self._load_params()
-            self.swatch_img = self._make_swatch_image()
-            self.get_logger().debug('Parameters reloaded successfully')
-            return SetParametersResult(successful=True)
+            # Convert ROS Image message to OpenCV image
+            cv_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+
+            # Perform color detection
+            color_detected, processed_img = self.detect_traffic_light_color(cv_img)
+
+            # Publish processed image
+            self.pub.publish(self.bridge.cv2_to_imgmsg(processed_img, 'bgr8'))
+
+            # Publish detected color (if any)
+            if color_detected:
+                self.color_pub.publish(String(data=color_detected))
+                self.get_logger().info(f'Detected color: {color_detected}')
+
+
+            self.image_received_flag = True
         except Exception as e:
-            self.get_logger().error(f'Failed to reload parameters: {e}')
-            return SetParametersResult(successful=False)
+            self.get_logger().info(f'Failed to process image: {str(e)}')
 
-    def camera_callback(self, msg: Image):
-        cv_img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
-        color, out_img, avg_bgr, avg_hsv = self._detect_color(cv_img)
+    def detect_traffic_light_color(self, img):
+        # Resize to make processing faster (optional)
+        img = cv2.resize(img, (320, 240))  # or (160, 120)
 
-        # publish processed image
-        self.img_pub.publish(self.bridge.cv2_to_imgmsg(out_img, 'bgr8'))
+        # Apply Gaussian Blur to reduce noise
+        blurred = cv2.GaussianBlur(img, (5, 5), 0)
 
-        if color:
-            self.col_pub.publish(String(data=color))
-            self.get_logger().debug(
-                f'Detected {color} → avg BGR={tuple(int(x) for x in avg_bgr)}, '
-                f'avg HSV={tuple(int(x) for x in avg_hsv)}'
-            )
-        else:
-            self.get_logger().debug('No color detected in this frame')
+        # Convert BGR to HSV
+        hsv_img = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
-        # show windows
-        cv2.imshow('Contours', out_img)
-        cv2.imshow('Swatches', self.swatch_img)
-        cv2.waitKey(1)
+        # Define HSV ranges
+        lower_red1 = np.array([0, 100, 100])
+        upper_red1 = np.array([10, 255, 255])
+        lower_red2 = np.array([160, 100, 100])
+        upper_red2 = np.array([180, 255, 255])
 
-    def _detect_color(self, img: np.ndarray):
-        self.get_logger().debug('Running _detect_color()')
-        small = cv2.resize(img, (320,240))
-        blur  = cv2.GaussianBlur(small, (5,5), 0)
-        hsv   = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+        lower_yellow = np.array([18, 100, 100])
+        upper_yellow = np.array([30, 255, 255])
 
-        # iterate through each named range
-        for name, bounds in self.hsv_ranges.items():
-            low, high = bounds['low'], bounds['high']
-            self.get_logger().debug(f'Checking {name}: low={low.tolist()}, high={high.tolist()}')
+        lower_green = np.array([40, 40, 40])
+        upper_green = np.array([80, 255, 255])
 
-            mask = cv2.inRange(hsv, low, high)
-            cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            self.get_logger().debug(f'  Found {len(cnts)} contours for {name}')
+        # Masks
+        mask_red1 = cv2.inRange(hsv_img, lower_red1, upper_red1)
+        mask_red2 = cv2.inRange(hsv_img, lower_red2, upper_red2)
+        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
 
-            for cnt in cnts:
-                area = cv2.contourArea(cnt)
-                self.get_logger().debug(f'    Contour area = {area:.1f}')
-                if area > self.min_area:
-                    self.get_logger().debug(f'    Area > min_area ({self.min_area}), selecting {name}')
-                    cv2.drawContours(small, [cnt], -1, (0,0,0), 2)
+        mask_yellow = cv2.inRange(hsv_img, lower_yellow, upper_yellow)
+        mask_green = cv2.inRange(hsv_img, lower_green, upper_green)
 
-                    # compute average BGR inside the contour
-                    mask_fill = np.zeros(mask.shape, np.uint8)
-                    cv2.drawContours(mask_fill, [cnt], -1, 255, -1)
-                    avg_bgr = cv2.mean(small, mask=mask_fill)[:3]
-                    avg_hsv = cv2.cvtColor(
-                        np.uint8([[avg_bgr]]), cv2.COLOR_BGR2HSV
-                    )[0,0]
+        # Find contours to detect size
+        contours_red, _ = cv2.findContours(mask_red, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours_yellow, _ = cv2.findContours(mask_yellow, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours_green, _ = cv2.findContours(mask_green, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-                    # normalize name to RED/YELLOW/GREEN
-                    simple = name.replace('1','').replace('2','')
-                    return simple, small, avg_bgr, avg_hsv
+        # Thresholds
+        min_area = 300  # Minimum area of color blob
 
-        # nothing detected
-        return None, small, (0,0,0), (0,0,0)
+        # Analyze detections
+        for cnt in contours_red:
+            if cv2.contourArea(cnt) > min_area:
+                cv2.drawContours(img, [cnt], -1, (0, 0, 255), 3)
+                return "RED", img
 
-    def _make_swatch_image(self):
-        h, w = 50, 300
-        canvas = np.zeros((h*len(self.hsv_ranges), w, 3), np.uint8)
-        for i, (name, b) in enumerate(self.hsv_ranges.items()):
-            y0 = i*h
-            half = w//2
-            low_bgr  = cv2.cvtColor(np.uint8([[b['low']]]),  cv2.COLOR_HSV2BGR)[0,0]
-            high_bgr = cv2.cvtColor(np.uint8([[b['high']]]), cv2.COLOR_HSV2BGR)[0,0]
-            canvas[y0:y0+h, 0:half]     = low_bgr
-            canvas[y0:y0+h, half:w]     = high_bgr
-            cv2.putText(canvas, name, (5, y0 + h - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
-        return canvas
+        for cnt in contours_yellow:
+            if cv2.contourArea(cnt) > min_area:
+                cv2.drawContours(img, [cnt], -1, (0, 255, 255), 3)
+                return "YELLOW", img
 
-    def destroy_node(self):
-        cv2.destroyAllWindows()
-        super().destroy_node()
+        for cnt in contours_green:
+            if cv2.contourArea(cnt) > min_area:
+                cv2.drawContours(img, [cnt], -1, (0, 255, 0), 3)
+                return "GREEN", img
 
+        # If nothing detected
+        return None, img
+
+    def timer_callback(self):
+        if not self.image_received_flag:
+            self.get_logger().info('Waiting for image...')
+        self.image_received_flag = False
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ColorDetectorNode()
-    try:
-        rclpy.spin(node)
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-
+    cv_e = CVExample()
+    rclpy.spin(cv_e)
+    cv_e.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
