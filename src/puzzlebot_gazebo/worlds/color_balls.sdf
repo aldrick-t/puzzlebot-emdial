@@ -48,7 +48,7 @@
 
     <include> 
 
-      <uri>file:///home/emanuelv/ros2_ws/install/puzzlebot_gazebo/share/puzzlebot_gazebo/models/puzzlebot_base</uri> 
+      <uri>file:///home/diegoq/ros2_emdial/install/puzzlebot_gazebo/share/puzzlebot_gazebo/models/puzzlebot_base</uri> 
 
       <name>puzzlebot_base</name> 
 
@@ -58,7 +58,7 @@
 
     <include> 
 
-      <uri>file:///home/emanuelv/ros2_ws/install/puzzlebot_gazebo/share/puzzlebot_gazebo/models/arena_a_frame</uri> 
+      <uri>file:///home/diegoq/ros2_emdial/install/puzzlebot_gazebo/share/puzzlebot_gazebo/models/arena_a_frame</uri> 
 
       <name>a-frame</name> 
 
