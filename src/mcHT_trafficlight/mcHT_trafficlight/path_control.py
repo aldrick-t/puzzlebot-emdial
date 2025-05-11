@@ -15,6 +15,7 @@ from geometry_msgs.msg import Twist
 import numpy as np
 import signal # To handle Ctrl+C
 import sys # To exit the program
+from std_msgs.msg import String
 
 class pathControl(Node):
     def __init__(self):
@@ -25,6 +26,9 @@ class pathControl(Node):
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
         self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
+        self.raffic_light_color_sub = self.create_subscription(String, 'traffic_light_color', self.traffic_light_color_cb, 10)
+
+
         
         # Handle shutdown gracefully
         signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
@@ -66,6 +70,11 @@ class pathControl(Node):
         self.integral_error_d = 0.0
         self.integral_error_theta = 0.0
 
+        # Traffic color lights
+        self.yellow_light = False
+        self.red_light = False
+        self.green_light = False
+
         # Time
         self.last_time = self.get_clock().now()
 
@@ -77,10 +86,34 @@ class pathControl(Node):
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.get_logger().info("Requested first Goal")
 
+    def traffic_light_color_cb(self, msg):
+        # Chechk if the ros message is empty
+        if msg.data == "":
+            self.get_logger().info("No traffic light detected")
+            return
+        else:
+            traffic_light_color = msg.data
+            self.get_logger().info(f"Traffic light color detected: {traffic_light_color}")
+            if traffic_light_color == "red":
+                self.red_light = True
+                self.yellow_light = False
+                self.green_light = False
+            elif traffic_light_color == "yellow":
+                self.red_light = False
+                self.yellow_light = True
+                self.green_light = False
+            elif traffic_light_color == "green":
+                self.red_light = False
+                self.yellow_light = False
+                self.green_light = True
+            else:
+                self.get_logger().info("Unknown traffic light color detected")
+                return
+
     def main_timer_cb(self):
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
-        self.last_time = now
+        self.last_time = now        
 
         if self.goal_received:
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
@@ -109,6 +142,10 @@ class pathControl(Node):
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
 
+            if self.yellow_light:
+                self.cmd_vel.linear.x *= 0.5
+                self.cmd_vel.angular.z *= 0.5
+
             # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
@@ -117,57 +154,23 @@ class pathControl(Node):
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
 
-                # Reset integrals
-                self.integral_error_d = 0.0
-                self.integral_error_theta = 0.0
+                while self.yellow_light or self.red_lighth:
+                    self.get_logger().info("Waiting for green light")
 
-                self.next_goal_pub.publish(Empty())
+                if self.green_light:
+                    self.get_logger().info("Green light detected, moving to next goal")
+                    # Reset integrals
+                    self.integral_error_d = 0.0
+                    self.integral_error_theta = 0.0
+
+                    self.next_goal_pub.publish(Empty())
                 return
 
             self.cmd_vel_pub.publish(self.cmd_vel)
 
         else:
             self.get_logger().info("Waiting for goal")
-
-        # ## This function is called every 0.05 seconds
-        # if self.goal_received:
-
-        #     self.get_logger().info("Goal received")
-        #     self.get_logger().info(f"Moving to goal: x={self.xg:.2f}, y={self.yg:.2f}")
-
-        #     ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
-
-        #     # Goal Threshold
-        #     if ed < self.goal_threshold: #Threshold value (tolerance) for goal reached in meters.
-        #         self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
-        #         self.get_logger().debug(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
-        #         self.get_logger().debug(f"Current theta: {self.theta_r:.2f}")
-        #         self.get_logger().debug(f"Within thresh: {ed:.2f} m")
-        #         self.goal_received = False
-        #         self.get_logger().debug(f"Goal received: {self.goal_received}")
-        #         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
-        #         self.get_logger().debug("Requested next goal")
-        #         self.cmd_vel.linear.x = 0.0
-        #         self.cmd_vel.angular.z = 0.0
-        #     else:
-        #         self.cmd_vel.linear.x = self.kp_v * ed
-        #         #limit the linear velocity to a maximum of 0.5 m/s
-        #         if self.cmd_vel.linear.x > 0.5:
-        #             self.cmd_vel.linear.x = 0.5
-        #         self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
-        #         if self.cmd_vel.linear.x > 0.5:
-        #             self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
-        #         self.cmd_vel.angular.z = self.kp_w * etheta
-        #         self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-        #         if self.cmd_vel.angular.z > 1.5:
-        #             self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
-
-        #     self.cmd_vel_pub.publish(self.cmd_vel)
-        # else: 
-        #     self.get_logger().info("Waiting for goal")
-        #     self.get_logger().debug(f"Goal received: {self.goal_received}")
-
-            
+          
 
     def get_errors(self, xr, yr, xg, yg, theta_r):
         ## This function computes the errors in x and y

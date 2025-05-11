@@ -18,7 +18,7 @@ class CVExample(Node):
         super().__init__('color_detector') 
         self.bridge = CvBridge() 
 
-        self.sub = self.create_subscription(Image, 'video_source/raw', self.camera_callback, 10) 
+        self.sub = self.create_subscription(Image, 'camera', self.camera_callback, 10) # camera || ideo_source/raw
         self.pub = self.create_publisher(Image, 'processed_img', 10) 
          
         self.image_received_flag = False #This flag is to ensure we received at least one image  
@@ -41,7 +41,14 @@ class CVExample(Node):
             resized_image = cv2.resize(self.cv_img, (160,120)) #(width, height) 
             # Add some text to the image 
             cv2.putText(resized_image, "Hello", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2) 
-            self.pub.publish(self.bridge.cv2_to_imgmsg(resized_image,'bgr8')) 
+
+            # blur the image
+            blurred = cv2.GaussianBlur(resized_image, (5, 5), 0)
+            # Convert BGR to HSV
+            hsv_img = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+            # Define HSV ranges
+            
+            self.pub.publish(self.bridge.cv2_to_imgmsg(hsv_img,'bgr8')) 
  
 
 def main(args=None): 

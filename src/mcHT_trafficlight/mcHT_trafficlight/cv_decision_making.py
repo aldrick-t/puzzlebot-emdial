@@ -12,8 +12,8 @@ class CVExample(Node):
         super().__init__('color_detector')
         self.bridge = CvBridge()
 
-        self.sub = self.create_subscription(Image, 'video_source/raw', self.camera_callback, 10)
-        self.pub = self.create_publisher(Image, 'processed_img', 10)
+        self.sub = self.create_subscription(Image, 'camera', self.camera_callback, 10) # camera || ideo_source/raw
+        self.pub = self.create_publisher(Image, 'processed_img', 10) # Publisher for processed image
         self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)  # New publisher for traffic light color
 
         self.image_received_flag = False
