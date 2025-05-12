@@ -94,15 +94,15 @@ class pathControl(Node):
         else:
             traffic_light_color = msg.data
             self.get_logger().info(f"Traffic light color detected: {traffic_light_color}")
-            if traffic_light_color == "red":
+            if traffic_light_color == "RED":
                 self.red_light = True
                 self.yellow_light = False
                 self.green_light = False
-            elif traffic_light_color == "yellow":
+            elif traffic_light_color == "YELLOW":
                 self.red_light = False
                 self.yellow_light = True
                 self.green_light = False
-            elif traffic_light_color == "green":
+            elif traffic_light_color == "GREEN":
                 self.red_light = False
                 self.yellow_light = False
                 self.green_light = True
@@ -144,31 +144,25 @@ class pathControl(Node):
 
             if self.yellow_light:
                 self.cmd_vel.linear.x *= 0.5
-                self.cmd_vel.angular.z *= 0.5
-
-            if self.red_light:
-                self.cmd_vel.linear.x = 0.0
-                self.cmd_vel.angular.z = 0.0
-                self.get_logger().info("Red light detected, stopping robot")
-                
+                self.cmd_vel.angular.z *= 1.0
 
             # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
-                self.goal_received = False
-                self.cmd_vel_pub.publish(Empty()) # Publish empty message to notify next goal
+                
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
 
-                while self.yellow_light or self.red_light:
+                if self.yellow_light or self.red_light:
                     self.get_logger().info("Waiting for green light")
+                    
 
                 if self.green_light:
                     self.get_logger().info("Green light detected, moving to next goal")
                     # Reset integrals
                     self.integral_error_d = 0.0
                     self.integral_error_theta = 0.0
-
+                    self.goal_received = False
                     self.next_goal_pub.publish(Empty())
                 return
 
