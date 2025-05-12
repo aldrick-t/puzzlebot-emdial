@@ -5,12 +5,18 @@ import numpy as np
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
+from rcl_interfaces.msg import SetParametersResult
+from rclpy.logging import LoggingSeverity
 
 
 class CVExample(Node):
     def __init__(self):
         super().__init__('color_detector')
         self.bridge = CvBridge()
+        
+        # DEBUG logging 
+        self.get_logger().set_level(LoggingSeverity.DEBUG)
+        self.get_logger().debug('Initializing ColorDetectorNode!')
 
         self.sub = self.create_subscription(Image, 'camera', self.camera_callback, 10) # camera || ideo_source/raw
         self.pub = self.create_publisher(Image, 'processed_img', 10) # Publisher for processed image
