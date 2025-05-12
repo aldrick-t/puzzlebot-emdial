@@ -1,6 +1,7 @@
 color_detector:
   ros__parameters:
-    min_area: 300
+    feature_type: "circle"     # or "square"
+    min_area_ratio: 0.1        # 10% of the frame area
 
     hsv_ranges:
       RED1:
