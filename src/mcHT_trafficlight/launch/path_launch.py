@@ -34,9 +34,17 @@ def generate_launch_description():
             name='odometry_node',
             parameters=[{'use_sim_time': True}]
         )
+    
+    cv_decision_making = Node(
+            package='mcHT_trafficlight',
+            executable='cv_decision_making',
+            name='cv_decision_making',
+            parameters=[{'use_sim_time': True}]
+        )
 
     return LaunchDescription([
         path_control,
         path_generator,
         odometry_node,
+        cv_decision_making,
     ])
