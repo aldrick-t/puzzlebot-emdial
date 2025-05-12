@@ -140,8 +140,8 @@ class pathControl(Node):
             w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
 
             # Saturate speeds
-            v = np.clip(v, 0.0, 0.5)
-            w = np.clip(w, -0.6, 0.6)
+            v = np.clip(v, 0.0, 0.4)
+            w = np.clip(w, -1.0, 1.0)
 
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w

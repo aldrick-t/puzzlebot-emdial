@@ -2,9 +2,10 @@ path_generator:
   ros__parameters:
     #points stored as a flat list of doubles.
     # For each point: [x, y]
-    path_points: [0.0, 2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0] #square
+    #path_points: [1.2,0.0,1.2,1.2,0.0,1.2,0.0,0.0] #square
     #path_points: [1.0, 0.0, 1.5, 0.5, 1.5, -0.5, 1.0, 0.0] #cocktail glass normal
     #path_points: [1.5, 0.5, 1.5, -0.5, 0.0, 0.0, 1.0, 0.0] #cocktail glass alternate
+    path_points: [1.2, 0.0, 2.4, -1.2, 3.6, -0.6, 2.4, 0.0] #cocktail glass large
 
     #path_points: [0.5, 0.0] # Error validation
 
@@ -16,5 +17,5 @@ path_control:
     #Tolerance Threshold
     goal_threshold: 0.02 
     #Maximum velocities
-    max_v: 0.5 #Max velocity
-    max_w: 0.6 #Max angular velocity
+    max_v: 0.4 #Max velocity
+    max_w: 0.3 #Max angular velocity
