@@ -26,7 +26,7 @@ class pathControl(Node):
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
         self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
-        self.raffic_light_color_sub = self.create_subscription(String, 'traffic_light_color', self.traffic_light_color_cb, 10)
+        self.traffic_light_color_sub = self.create_subscription(String, 'traffic_light_color', self.traffic_light_color_cb, 10)
 
 
         
@@ -152,7 +152,6 @@ class pathControl(Node):
                 
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
-                self.cmd_vel_pub.publish(self.cmd_vel)
 
                 if self.yellow_light or self.red_light:
                     self.get_logger().info("Waiting for green light")
