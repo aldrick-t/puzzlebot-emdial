@@ -80,7 +80,7 @@ class pathControl(Node):
         self.last_time = self.get_clock().now()
 
         self.cmd_vel = Twist()
-        timer_period = 0.05 
+        timer_period = 0.02 
         self.create_timer(timer_period, self.main_timer_cb)
         
         self.get_logger().info("Node initialized!!")
@@ -121,7 +121,7 @@ class pathControl(Node):
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
             # Update integrals ONLY if error is not too small
-            if abs(ed) > 0.01:
+            if abs(ed) > 0.05:
                 self.integral_error_d += ed * dt
                 self.integral_error_d = np.clip(self.integral_error_d, -self.integral_error_d_max, self.integral_error_d_max)
             else:
@@ -171,6 +171,9 @@ class pathControl(Node):
                     self.integral_error_d = 0.0
                     self.integral_error_theta = 0.0
                     self.goal_received = False
+                    self.red_light = False
+                    self.yellow_light = False
+                    self.green_light = False
                     self.next_goal_pub.publish(Empty())
                 return
 

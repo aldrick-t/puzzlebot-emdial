@@ -5,10 +5,9 @@ path_generator:
     #path_points: [1.2,0.0,1.2,1.2,0.0,1.2,0.0,0.0] #square
     #path_points: [1.0, 0.0, 1.5, 0.5, 1.5, -0.5, 1.0, 0.0] #cocktail glass normal
     #path_points: [1.5, 0.5, 1.5, -0.5, 0.0, 0.0, 1.0, 0.0] #cocktail glass alternate
-    path_points: [1.2, 0.0, 2.4, -1.2, 3.6, -0.6, 2.4, 0.0] #cocktail glass large
+    path_points: [1.2, -1.2, 2.4, -0.6, 1.2, 0.0, 0.0, 0.0] #Hook
 
-    #path_points: [0.5, 0.0] # Error validation
-
+    #path_points: [4.8, 0.0] # Speed Validation (Yellow - Green)
 path_control:
   ros__parameters:
     #Controller Gains
@@ -17,5 +16,5 @@ path_control:
     #Tolerance Threshold
     goal_threshold: 0.02 
     #Maximum velocities
-    max_v: 0.4 #Max velocity
+    max_v: 0.3 #Max velocity
     max_w: 0.3 #Max angular velocity
