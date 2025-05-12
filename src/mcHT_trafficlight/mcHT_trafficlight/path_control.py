@@ -125,7 +125,7 @@ class pathControl(Node):
             else:
                 self.integral_error_d = 0.0  # Reset if error is small
 
-            if abs(etheta) > 0.005:
+            if abs(etheta) > 0.05:
                 self.integral_error_theta += etheta * dt
                 self.integral_error_theta = np.clip(self.integral_error_theta, -self.integral_error_theta_max, self.integral_error_theta_max)
             else:
@@ -137,7 +137,7 @@ class pathControl(Node):
 
             # Saturate speeds
             v = np.clip(v, 0.0, 0.5)
-            w = np.clip(w, -1.5, 1.5)
+            w = np.clip(w, -0.8, 0.8)
 
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
