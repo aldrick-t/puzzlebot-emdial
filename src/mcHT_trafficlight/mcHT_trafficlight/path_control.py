@@ -16,6 +16,7 @@ import numpy as np
 import signal # To handle Ctrl+C
 import sys # To exit the program
 from std_msgs.msg import String
+import time
 
 class pathControl(Node):
     def __init__(self):
@@ -57,10 +58,10 @@ class pathControl(Node):
         # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
         
         # Control gains
-        self.kp_v = 0.2
+        self.kp_v = 0.6
         self.ki_v = 0.1
-        self.kp_w = 1.2
-        self.ki_w = 0.3
+        self.kp_w = 0.8
+        self.ki_w = 0.2
 
         # Limits for integrals (anti-windup)
         self.integral_error_d_max = 1.0
@@ -81,8 +82,9 @@ class pathControl(Node):
         self.cmd_vel = Twist()
         timer_period = 0.05 
         self.create_timer(timer_period, self.main_timer_cb)
+        
         self.get_logger().info("Node initialized!!")
-
+        time.sleep(5)
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.get_logger().info("Requested first Goal")
 
@@ -124,15 +126,14 @@ class pathControl(Node):
                 self.integral_error_d = np.clip(self.integral_error_d, -self.integral_error_d_max, self.integral_error_d_max)
             else:
                 self.integral_error_d = 0.0  # Reset if error is small
+                
 
             if abs(etheta) > 0.05:
                 self.integral_error_theta += etheta * dt
                 self.integral_error_theta = np.clip(self.integral_error_theta, -self.integral_error_theta_max, self.integral_error_theta_max)
             else:
-                self.integral_error_theta = 0.0  # Reset if error is small
-                #self.integral_error_d = 0.0  # Reset distance error if angle error is small
-                #ed = 0.0  # Reset distance error if angle error is small
-                #etheta = 0.0  # Reset angle error if distance error is small
+                self.integral_error_theta = 0.0  # Reset if error is small   
+                
 
             # PI control for linear and angular velocity
             v = self.kp_v * ed + self.ki_v * self.integral_error_d
@@ -140,7 +141,7 @@ class pathControl(Node):
 
             # Saturate speeds
             v = np.clip(v, 0.0, 0.5)
-            w = np.clip(w, -0.8, 0.8)
+            w = np.clip(w, -0.6, 0.6)
 
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
@@ -155,6 +156,10 @@ class pathControl(Node):
                 
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
+                
+                self.cmd_vel_pub.publish(self.cmd_vel)
+                ed = 0.0  # Reset distance error if angle error is small
+                etheta = 0.0  # Reset angle error if distance error is small
 
                 if self.yellow_light or self.red_light:
                     self.get_logger().info("Waiting for green light")
