@@ -57,10 +57,10 @@ class pathControl(Node):
         # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
         
         # Control gains
-        self.kp_v = 0.5
+        self.kp_v = 0.2
         self.ki_v = 0.1
-        self.kp_w = 1.0
-        self.ki_w = 0.2
+        self.kp_w = 1.2
+        self.ki_w = 0.3
 
         # Limits for integrals (anti-windup)
         self.integral_error_d_max = 1.0
@@ -87,7 +87,7 @@ class pathControl(Node):
         self.get_logger().info("Requested first Goal")
 
     def traffic_light_color_cb(self, msg):
-        # Chechk if the ros message is empty
+        # Check if the ros message is empty
         if msg.data == "":
             self.get_logger().info("No traffic light detected")
             return

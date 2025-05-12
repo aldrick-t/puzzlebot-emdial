@@ -223,7 +223,7 @@ class CVExample(Node):
 
     def timer_callback(self):
         if not self.image_received_flag:
-            self.get_logger().info('Waiting for image...')
+            self.get_logger().info('Waiting for color...')
         self.image_received_flag = False
 
 
