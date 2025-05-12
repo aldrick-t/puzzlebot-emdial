@@ -14,7 +14,8 @@ setup(
     license='MIT',
     entry_points={
         'console_scripts': [
-            'webcam_publisher = webcam_pub.webcam_publisher:main'
+            'webcam_pub = webcam_pub.webcam_publisher:main',
+            'webcam_publisher = webcam_pub.webcam_publisher:main',
         ],
     },
 )
