@@ -5,7 +5,6 @@ import numpy as np
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
-from rcl_interfaces.msg import SetParametersResult
 from rclpy.logging import LoggingSeverity
 
 
@@ -13,109 +12,129 @@ class CVExample(Node):
     def __init__(self): 
         super().__init__('color_detector')
         self.bridge = CvBridge()
-        
+
         # DEBUG logging 
         self.get_logger().set_level(LoggingSeverity.DEBUG)
         self.get_logger().debug('Initializing ColorDetectorNode!')
 
-        self.sub = self.create_subscription(Image, 'camera/image_raw', self.camera_callback, 10) # camera || ideo_source/raw
-        self.pub = self.create_publisher(Image, 'processed_img', 10) # Publisher for processed image
-        self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)  # New publisher for traffic light color
+        # Subscribers & publishers
+        # Subscribe to the camera image topic
+        # Change Camera topic to match setup
+        # Gazebo: /camera, Real Remote: /image_source/raw, Real Local: /camera/image_raw
+        self.sub = self.create_subscription(Image, 'camera/image_raw', self.camera_callback, 10)
+        self.pub = self.create_publisher(Image, 'processed_img', 10)
+        self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)
 
         self.image_received_flag = False
-        dt = 0.1
-        self.timer = self.create_timer(dt, self.timer_callback)
+        self.timer = self.create_timer(0.1, self.timer_callback)
         self.get_logger().info('ros_color_tracker Node started')
+
+        # Single combined debug window
+        cv2.namedWindow("Debug View", cv2.WINDOW_NORMAL)
 
     def camera_callback(self, msg):
         try:
-            # Convert ROS Image message to OpenCV image
             cv_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-
-            # Perform color detection
             color_detected, processed_img = self.detect_traffic_light_color(cv_img)
 
             # Publish processed image
             self.pub.publish(self.bridge.cv2_to_imgmsg(processed_img, 'bgr8'))
 
-            # Publish detected color (if any)
+            # Publish detected color
             if color_detected:
                 self.color_pub.publish(String(data=color_detected))
                 self.get_logger().info(f'Detected color: {color_detected}')
-
 
             self.image_received_flag = True
         except Exception as e:
             self.get_logger().info(f'Failed to process image: {str(e)}')
 
     def detect_traffic_light_color(self, img):
-        # Resize to make processing faster (optional)
-        img = cv2.resize(img, (320, 240))  # or (160, 120)
-
-        # Apply Gaussian Blur to reduce noise
+        # Resize & blur
+        img = cv2.resize(img, (320, 240))
         blurred = cv2.GaussianBlur(img, (5, 5), 0)
+        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
-        # Convert BGR to HSV
-        hsv_img = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-
-        # Define HSV ranges
-        lower_red1 = np.array([0, 100, 100])
-        upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([160, 100, 100])
-        upper_red2 = np.array([180, 255, 255])
-
-        lower_yellow = np.array([18, 100, 100])
-        upper_yellow = np.array([30, 255, 255])
-
-        lower_green = np.array([40, 40, 40])
-        upper_green = np.array([80, 255, 255])
+        # HSV ranges
+        lr1, ur1 = np.array([0,100,100]),   np.array([10,255,255])
+        lr2, ur2 = np.array([160,100,100]), np.array([180,255,255])
+        ly, uy   = np.array([18,100,100]),  np.array([30,255,255])
+        lg, ug   = np.array([40,40,40]),    np.array([80,255,255])
 
         # Masks
-        mask_red1 = cv2.inRange(hsv_img, lower_red1, upper_red1)
-        mask_red2 = cv2.inRange(hsv_img, lower_red2, upper_red2)
-        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+        mr1 = cv2.inRange(hsv, lr1, ur1)
+        mr2 = cv2.inRange(hsv, lr2, ur2)
+        mask_red    = cv2.bitwise_or(mr1, mr2)
+        mask_yellow = cv2.inRange(hsv, ly, uy)
+        mask_green  = cv2.inRange(hsv, lg, ug)
 
-        mask_yellow = cv2.inRange(hsv_img, lower_yellow, upper_yellow)
-        mask_green = cv2.inRange(hsv_img, lower_green, upper_green)
+        # Build HSV swatch (180×200) then resize to 240×320
+        swatch = np.zeros((180,200,3), np.uint8)
+        def draw_row(min_hsv, max_hsv, y):
+            bmin = cv2.cvtColor(np.uint8([[min_hsv]]), cv2.COLOR_HSV2BGR)[0,0].tolist()
+            bmax = cv2.cvtColor(np.uint8([[max_hsv]]), cv2.COLOR_HSV2BGR)[0,0].tolist()
+            cv2.rectangle(swatch, (0,y),(100,y+60), bmin, -1)
+            cv2.rectangle(swatch, (100,y),(200,y+60), bmax, -1)
+        draw_row(lr1, ur1, 0);    cv2.putText(swatch,"Red min/max",(5,75),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),1)
+        draw_row(ly,  uy,   60);   cv2.putText(swatch,"Yellow min/max",(5,135),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),1)
+        draw_row(lg,  ug,   120);  cv2.putText(swatch,"Green min/max",(5,175),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),1)
+        sw_resized = cv2.resize(swatch, (320, 240))
 
-        # Find contours to detect size
-        contours_red, _ = cv2.findContours(mask_red, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours_yellow, _ = cv2.findContours(mask_yellow, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours_green, _ = cv2.findContours(mask_green, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # Convert masks to BGR
+        mr_bgr = cv2.cvtColor(mask_red,    cv2.COLOR_GRAY2BGR)
+        my_bgr = cv2.cvtColor(mask_yellow, cv2.COLOR_GRAY2BGR)
+        mg_bgr = cv2.cvtColor(mask_green,  cv2.COLOR_GRAY2BGR)
 
-        # Thresholds
-        min_area = 300  # Minimum area of color blob
+        # Find contours & log
+        cnts_r, _ = cv2.findContours(mask_red,    cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnts_y, _ = cv2.findContours(mask_yellow, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnts_g, _ = cv2.findContours(mask_green,  cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Analyze detections
-        for cnt in contours_red:
-            if cv2.contourArea(cnt) > min_area:
-                cv2.drawContours(img, [cnt], -1, (0, 0, 255), 3)
-                return "RED", img
+        min_area = 300
+        detected = None
 
-        for cnt in contours_yellow:
-            if cv2.contourArea(cnt) > min_area:
-                cv2.drawContours(img, [cnt], -1, (0, 255, 255), 3)
-                return "YELLOW", img
+        # helper to check contours
+        def check(cnts, color_name, draw_color):
+            nonlocal detected
+            for c in cnts:
+                area = cv2.contourArea(c)
+                self.get_logger().debug(f"{color_name} contour area: {area}")
+                if area > min_area and detected is None:
+                    cv2.drawContours(img, [c], -1, draw_color, 3)
+                    detected = color_name
 
-        for cnt in contours_green:
-            if cv2.contourArea(cnt) > min_area:
-                cv2.drawContours(img, [cnt], -1, (0, 255, 0), 3)
-                return "GREEN", img
+        check(cnts_r, "RED",    (0,0,255))
+        check(cnts_y, "YELLOW", (0,255,255))
+        check(cnts_g, "GREEN",  (0,255,0))
 
-        # If nothing detected
-        return None, img
+        # Create blank slot for 6th cell
+        blank = np.zeros_like(img)
+
+        # Top row: swatch | processed | blank
+        top = np.hstack([sw_resized, img, blank])
+        # Bottom row: red mask | yellow mask | green mask
+        bottom = np.hstack([mr_bgr, my_bgr, mg_bgr])
+
+        # Full mosaic
+        mosaic = np.vstack([top, bottom])
+        cv2.imshow("Debug View", mosaic)
+        cv2.waitKey(1)
+
+        return detected, img
 
     def timer_callback(self):
         if not self.image_received_flag:
             self.get_logger().info('Waiting for image...')
         self.image_received_flag = False
 
+
 def main(args=None):
     rclpy.init(args=args)
-    cv_e = CVExample()
-    rclpy.spin(cv_e)
-    cv_e.destroy_node()
+    node = CVExample()
+    rclpy.spin(node)
+    node.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
