@@ -19,7 +19,7 @@ def generate_launch_description():
             package='mcHT_trafficlight',
             executable='cv_decision_making',
             name='cv_decision_making',
-            parameters=[{'use_sim_time': True}, config]
+            parameters=[{'use_sim_time': False}, config]
         )
     
     return LaunchDescription([
