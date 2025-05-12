@@ -8,7 +8,7 @@ from std_msgs.msg import String
 
 
 class CVExample(Node):
-    def __init__(self):
+    def __init__(self): 
         super().__init__('color_detector')
         self.bridge = CvBridge()
 

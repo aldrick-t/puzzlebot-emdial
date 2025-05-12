@@ -150,11 +150,11 @@ class pathControl(Node):
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
                 self.goal_received = False
+                self.cmd_vel_pub.publish(Empty()) # Publish empty message to notify next goal
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
-                self.cmd_vel_pub.publish(self.cmd_vel)
 
-                while self.yellow_light or self.red_lighth:
+                while self.yellow_light or self.red_light:
                     self.get_logger().info("Waiting for green light")
 
                 if self.green_light:
