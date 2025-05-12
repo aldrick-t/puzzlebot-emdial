@@ -49,8 +49,9 @@ def generate_launch_description():
         )
 
     return LaunchDescription([
-        path_control,
+        cv_decision_making,
         path_generator,
         odometry_node,
-        cv_decision_making,
+        path_control,
+        
     ])
