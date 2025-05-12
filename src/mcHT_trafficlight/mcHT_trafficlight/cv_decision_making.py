@@ -18,7 +18,7 @@ class CVExample(Node):
         self.get_logger().set_level(LoggingSeverity.DEBUG)
         self.get_logger().debug('Initializing ColorDetectorNode!')
 
-        self.sub = self.create_subscription(Image, 'camera', self.camera_callback, 10) # camera || ideo_source/raw
+        self.sub = self.create_subscription(Image, 'camera/image_raw', self.camera_callback, 10) # camera || ideo_source/raw
         self.pub = self.create_publisher(Image, 'processed_img', 10) # Publisher for processed image
         self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)  # New publisher for traffic light color
 
