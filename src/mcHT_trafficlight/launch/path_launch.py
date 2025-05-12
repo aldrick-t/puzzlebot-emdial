@@ -13,33 +13,39 @@ def generate_launch_description():
         'config',
         'path_params.yaml'
     )
+    
+    configcv = os.path.join(
+        package_directory,
+        'config',
+        'cv_params.yaml'
+    )
 
     path_generator = Node(
             package='mcHT_trafficlight',
             executable='path_generator',
             name='path_generator',
-            parameters=[{'use_sim_time': True}, config],
+            parameters=[{'use_sim_time': False}, config],
         )
 
     path_control = Node(
             package='mcHT_trafficlight',
             executable='path_control',
             name='path_control',
-            parameters=[{'use_sim_time': True}, config]
+            parameters=[{'use_sim_time': False}, config]
         )
     
     odometry_node = Node(
             package='mcHT_trafficlight',
             executable='odometry_node',
             name='odometry_node',
-            parameters=[{'use_sim_time': True}]
+            parameters=[{'use_sim_time': False}]
         )
     
     cv_decision_making = Node(
             package='mcHT_trafficlight',
             executable='cv_decision_making',
             name='cv_decision_making',
-            parameters=[{'use_sim_time': True}]
+            parameters=[{'use_sim_time': False}, configcv]
         )
 
     return LaunchDescription([

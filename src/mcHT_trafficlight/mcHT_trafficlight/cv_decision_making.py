@@ -14,7 +14,7 @@ class CVExample(Node):
         self.bridge = CvBridge()
 
         # Static parameters (immutable at runtime)
-        self.declare_parameter('camera_topic', 'camera/image_raw')
+        self.declare_parameter('camera_topic', 'video_source/raw')
         self.declare_parameter('log_severity', 'INFO')
         self.declare_parameter('feature_type', 'circle')
 
