@@ -146,6 +146,12 @@ class pathControl(Node):
                 self.cmd_vel.linear.x *= 0.5
                 self.cmd_vel.angular.z *= 0.5
 
+            if self.red_light:
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.get_logger().info("Red light detected, stopping robot")
+                
+
             # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
