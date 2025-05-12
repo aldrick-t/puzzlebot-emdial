@@ -102,9 +102,9 @@ class CVExample(Node):
         frame_area = h * w
         min_area = frame_area * self.min_area_ratio
 
-        blur = cv2.GaussianBlur(small, (5,5), 0)
+        blur = cv2.GaussianBlur(small, (3, 3), 0)
         hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-
+        
         hr = self.hsv_ranges
         mask_r = cv2.bitwise_or(
             cv2.inRange(hsv, hr['red1_low'], hr['red1_high']),
@@ -112,6 +112,15 @@ class CVExample(Node):
         )
         mask_y = cv2.inRange(hsv, hr['yellow_low'], hr['yellow_high'])
         mask_g = cv2.inRange(hsv, hr['green_low'],  hr['green_high'])
+
+        # Apply morphological operations to reduce noise
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        # mask_r = cv2.morphologyEx(mask_r, cv2.MORPH_CLOSE, kernel)
+        mask_r = cv2.morphologyEx(mask_r, cv2.MORPH_OPEN, kernel)
+        # mask_y = cv2.morphologyEx(mask_y, cv2.MORPH_CLOSE, kernel)
+        mask_y = cv2.morphologyEx(mask_y, cv2.MORPH_OPEN, kernel)
+        # mask_g = cv2.morphologyEx(mask_g, cv2.MORPH_CLOSE, kernel)
+        mask_g = cv2.morphologyEx(mask_g, cv2.MORPH_OPEN, kernel)
 
         # reset last feature
         self.last_feature = None
@@ -134,13 +143,17 @@ class CVExample(Node):
 
     def isolate_shape(self, img, mask, color_name, contour, min_area):
         out = img.copy()
-        draw_color = {'RED':(0,0,255),'YELLOW':(0,255,255),'GREEN':(0,255,0)}[color_name]
+        draw_color = {'RED': (0, 0, 255), 'YELLOW': (0, 255, 255), 'GREEN': (0, 255, 0)}[color_name]
 
         if self.feature_type == 'circle':
             # Use minimum enclosing circle
-            (x,y), r = cv2.minEnclosingCircle(contour)
-            center = (int(x),int(y)); radius = int(r)
-            circle_area = np.pi * (radius**2)
+            (x, y), r = cv2.minEnclosingCircle(contour)
+            center = (int(x), int(y))
+            radius = int(r)
+            circle_area = np.pi * (radius ** 2)
+            if circle_area < min_area:
+                self.get_logger().info(f"{color_name} circle rejected (area={circle_area:.1f} < min_area={min_area:.1f})")
+                return img
             self.get_logger().info(f"{color_name} circle @({center[0]},{center[1]}) r={radius} area={circle_area:.1f}")
             cv2.circle(out, center, radius, draw_color, 2)
             self.last_feature = ('circle', (center, radius))
@@ -149,13 +162,17 @@ class CVExample(Node):
             peri = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.04 * peri, True)
             if len(approx) == 4 and cv2.isContourConvex(approx):
-                self.get_logger().info(f"{color_name} square corners={approx.reshape(-1,2).tolist()}")
+                area = cv2.contourArea(approx)
+                if area < min_area:
+                    self.get_logger().info(f"{color_name} square rejected (area={area:.1f} < min_area={min_area:.1f})")
+                    return img
+                self.get_logger().info(f"{color_name} square corners={approx.reshape(-1, 2).tolist()}")
                 cv2.drawContours(out, [approx], -1, draw_color, 2)
                 self.last_feature = ('square', approx)
 
-        self.show_mosaic(img, mask_r=(mask if color_name=='RED' else None),
-                               mask_y=(mask if color_name=='YELLOW' else None),
-                               mask_g=(mask if color_name=='GREEN' else None),
+        self.show_mosaic(img, mask_r=(mask if color_name == 'RED' else None),
+                               mask_y=(mask if color_name == 'YELLOW' else None),
+                               mask_g=(mask if color_name == 'GREEN' else None),
                                processed_override=out)
         return out
 
