@@ -1,18 +1,17 @@
 color_detector:
   ros__parameters:
     # static
-    camera_topic: '/my_camera/image_raw'
+    camera_topic: '/camera/image_raw'
     log_severity: 'DEBUG'
-    feature_type: 'square'
+    feature_type: 'circle'
 
     # dynamic
-    hsv_ranges:
-      red1_low:  [0, 100, 100]
-      red1_high: [10,255,255]
-      red2_low:  [160,100,100]
-      red2_high: [180,255,255]
-      yellow_low: [18,100,100]
-      yellow_high: [30,255,255]
-      green_low:  [40,40,40]
-      green_high: [80,255,255]
-    min_area_ratio: 0.1
+    red1_low:     [0,100,100]
+    red1_high:    [5,255,255]
+    red2_low:     [175,100,100]
+    red2_high:    [180,255,255]
+    yellow_low:   [18,100,100]
+    yellow_high:  [30,255,255]
+    green_low:    [40,40,40]
+    green_high:   [80,255,255]
+    min_area_ratio: 0.005
