@@ -115,11 +115,12 @@ class CVExample(Node):
 
         # Apply morphological operations to reduce noise
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-        # mask_r = cv2.morphologyEx(mask_r, cv2.MORPH_CLOSE, kernel)
+        kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        mask_r = cv2.morphologyEx(mask_r, cv2.MORPH_CLOSE, kernel_small)
         mask_r = cv2.morphologyEx(mask_r, cv2.MORPH_OPEN, kernel)
-        # mask_y = cv2.morphologyEx(mask_y, cv2.MORPH_CLOSE, kernel)
+        mask_y = cv2.morphologyEx(mask_y, cv2.MORPH_CLOSE, kernel_small)
         mask_y = cv2.morphologyEx(mask_y, cv2.MORPH_OPEN, kernel)
-        # mask_g = cv2.morphologyEx(mask_g, cv2.MORPH_CLOSE, kernel)
+        mask_g = cv2.morphologyEx(mask_g, cv2.MORPH_CLOSE, kernel_small)
         mask_g = cv2.morphologyEx(mask_g, cv2.MORPH_OPEN, kernel)
 
         # reset last feature
