@@ -26,8 +26,8 @@ from launch.substitutions import EnvironmentVariable, Command
 def generate_launch_description():
 
     # World and robot file names
-    #world_file = 'puzzlebot_arena.world' # Default MCR2 world
-    world_file = 'worldcito.sdf' # Default MCR2 world
+    world_file = 'puzzlebot_arena.world' # Default MCR2 world
+    #world_file = 'worldcito.sdf' # Default MCR2 world
     robot = 'puzzlebot_jetson_lidar_ed'
 
     # Robot's initial position

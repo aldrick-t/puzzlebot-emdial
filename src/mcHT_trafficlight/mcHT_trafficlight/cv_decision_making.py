@@ -84,17 +84,17 @@ class CVExample(Node):
         for cnt in contours_red:
             if cv2.contourArea(cnt) > min_area:
                 cv2.drawContours(img, [cnt], -1, (0, 0, 255), 3)
-                return "RED", img
+                return "red", img
 
         for cnt in contours_yellow:
             if cv2.contourArea(cnt) > min_area:
                 cv2.drawContours(img, [cnt], -1, (0, 255, 255), 3)
-                return "YELLOW", img
+                return "yellow", img
 
         for cnt in contours_green:
             if cv2.contourArea(cnt) > min_area:
                 cv2.drawContours(img, [cnt], -1, (0, 255, 0), 3)
-                return "GREEN", img
+                return "green", img
 
         # If nothing detected
         return None, img
