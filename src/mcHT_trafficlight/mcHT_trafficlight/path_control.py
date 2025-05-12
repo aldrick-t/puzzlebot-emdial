@@ -130,6 +130,9 @@ class pathControl(Node):
                 self.integral_error_theta = np.clip(self.integral_error_theta, -self.integral_error_theta_max, self.integral_error_theta_max)
             else:
                 self.integral_error_theta = 0.0  # Reset if error is small
+                #self.integral_error_d = 0.0  # Reset distance error if angle error is small
+                #ed = 0.0  # Reset distance error if angle error is small
+                #etheta = 0.0  # Reset angle error if distance error is small
 
             # PI control for linear and angular velocity
             v = self.kp_v * ed + self.ki_v * self.integral_error_d
