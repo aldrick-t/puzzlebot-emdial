@@ -20,7 +20,7 @@ path_control:
     kd_w: 0.1 #Angular velocity damping
 
     #Tolerance Threshold
-    goal_threshold: 0.02 
+    goal_threshold: 0.03 
     #Maximum velocities
     max_v: 0.3 #Max velocity
     max_w: 0.3 #Max angular velocity
