@@ -41,7 +41,7 @@ class pathControl(Node):
 
         # Declare parameters
         self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.goal_threshold = self.declare_parameter('goal_threshold', 0.03).get_parameter_value().double_value
+        self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).get_parameter_value().double_value
 
         self.add_on_set_parameters_callback(self.parameter_callback)
 
@@ -60,7 +60,7 @@ class pathControl(Node):
         # Control gains
         self.kp_v = 0.7
         self.ki_v = 0.1
-        self.kp_w = 0.6
+        self.kp_w = 0.7
         self.ki_w = 0.1
 
         # Limits for integrals (anti-windup)
@@ -140,8 +140,8 @@ class pathControl(Node):
             w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
 
             # Saturate speeds
-            v = np.clip(v, 0.0, 0.4)
-            w = np.clip(w, -1.0, 1.0)
+            v = np.clip(v, 0.0, 0.3)
+            w = np.clip(w, -1.2, 1.2)
 
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
@@ -158,10 +158,7 @@ class pathControl(Node):
             if self.green_light:
                 self.cmd_vel.linear.x = v
                 self.cmd_vel.angular.z = w
-                self.red_light = False
-                self.yellow_light = False
-                self.green_light = False
-                
+
             # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")

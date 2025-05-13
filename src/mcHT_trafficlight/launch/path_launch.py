@@ -47,11 +47,20 @@ def generate_launch_description():
             name='cv_decision_making',
             parameters=[{'use_sim_time': False}, configcv]
         )
+    
+    plotter_monitor = Node(
+            package='mcHT_trafficlight',
+            executable='plotter_monitor',
+            name='plotter_monitor',
+            parameters=[{'use_sim_time': False}]
+        )
+    
+
 
     return LaunchDescription([
         cv_decision_making,
         path_generator,
         odometry_node,
         path_control,
-        
+        plotter_monitor,
     ])
