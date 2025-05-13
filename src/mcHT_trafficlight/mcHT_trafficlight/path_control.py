@@ -41,7 +41,7 @@ class pathControl(Node):
 
         # Declare parameters
         self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.goal_threshold = self.declare_parameter('goal_threshold', 0.03).get_parameter_value().double_value
+        self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).get_parameter_value().double_value
 
         self.add_on_set_parameters_callback(self.parameter_callback)
 
@@ -58,10 +58,10 @@ class pathControl(Node):
         # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
         
         # Control gains
-        self.kp_v = 0.6
+        self.kp_v = 0.7
         self.ki_v = 0.1
-        self.kp_w = 0.8
-        self.ki_w = 0.2
+        self.kp_w = 0.7
+        self.ki_w = 0.1
 
         # Limits for integrals (anti-windup)
         self.integral_error_d_max = 1.0
@@ -75,6 +75,7 @@ class pathControl(Node):
         self.yellow_light = False
         self.red_light = False
         self.green_light = False
+
         self.moving = True
 
         # Time
@@ -144,8 +145,8 @@ class pathControl(Node):
             w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
 
             # Saturate speeds
-            v = np.clip(v, 0.0, 0.4)
-            w = np.clip(w, -1.0, 1.0)
+            v = np.clip(v, 0.0, 0.3)
+            w = np.clip(w, -1.2, 1.2)
 
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
@@ -153,31 +154,35 @@ class pathControl(Node):
             if self.yellow_light:
                 self.cmd_vel.linear.x *= 0.5
                 self.cmd_vel.angular.z *= 1.0
+            
+            if not self.moving:
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
 
             # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
                 
-                ed = 0.0  # Reset distance error if angle error is small
-                etheta = 0.0  # Reset angle error if distance error is small
-                          
-                # Reset integrals
-                self.integral_error_d = 0.0
-                self.integral_error_theta = 0.0
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
+                
+                self.cmd_vel_pub.publish(self.cmd_vel)
+                ed = 0.0  # Reset distance error if angle error is small
+                etheta = 0.0  # Reset angle error if distance error is small
+                
+                self.integral_error_d = 0.0
+                self.integral_error_theta = 0.0
                 self.goal_received = False
                 self.next_goal_pub.publish(Empty())
                 
+                return
 
             self.cmd_vel_pub.publish(self.cmd_vel)
         
-        elif self.goal_received and not self.moving:
+        if self.goal_received and not self.moving:
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
-
-
 
         else:
             self.get_logger().info("Waiting for goal")
@@ -253,6 +258,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        
         node.destroy_node()
         rclpy.shutdown()
 
