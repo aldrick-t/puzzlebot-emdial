@@ -75,6 +75,7 @@ class pathControl(Node):
         self.yellow_light = False
         self.red_light = False
         self.green_light = False
+        self.moving = True
 
         # Time
         self.last_time = self.get_clock().now()
@@ -100,6 +101,7 @@ class pathControl(Node):
                 self.red_light = True
                 self.yellow_light = False
                 self.green_light = False
+                self.moving = False
             elif traffic_light_color == "YELLOW":
                 self.red_light = False
                 self.yellow_light = True
@@ -108,6 +110,8 @@ class pathControl(Node):
                 self.red_light = False
                 self.yellow_light = False
                 self.green_light = True
+                self.moving = True
+
             else:
                 self.get_logger().info("Unknown traffic light color detected")
                 return
@@ -117,7 +121,7 @@ class pathControl(Node):
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now        
 
-        if self.goal_received:
+        if self.goal_received and self.moving:
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
             # Update integrals ONLY if error is not too small
@@ -154,30 +158,26 @@ class pathControl(Node):
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
                 
-                self.cmd_vel.linear.x = 0.0
-                self.cmd_vel.angular.z = 0.0
-                
-                self.cmd_vel_pub.publish(self.cmd_vel)
                 ed = 0.0  # Reset distance error if angle error is small
                 etheta = 0.0  # Reset angle error if distance error is small
-
-                if self.yellow_light or self.red_light:
-                    self.get_logger().info("Waiting for green light")
-                    
-
-                if self.green_light:
-                    self.get_logger().info("Green light detected, moving to next goal")
-                    # Reset integrals
-                    self.integral_error_d = 0.0
-                    self.integral_error_theta = 0.0
-                    self.goal_received = False
-                    self.red_light = False
-                    self.yellow_light = False
-                    self.green_light = False
-                    self.next_goal_pub.publish(Empty())
-                return
+                          
+                # Reset integrals
+                self.integral_error_d = 0.0
+                self.integral_error_theta = 0.0
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.goal_received = False
+                self.next_goal_pub.publish(Empty())
+                
 
             self.cmd_vel_pub.publish(self.cmd_vel)
+        
+        elif self.goal_received and not self.moving:
+            self.cmd_vel.linear.x = 0.0
+            self.cmd_vel.angular.z = 0.0
+            self.cmd_vel_pub.publish(self.cmd_vel)
+
+
 
         else:
             self.get_logger().info("Waiting for goal")
