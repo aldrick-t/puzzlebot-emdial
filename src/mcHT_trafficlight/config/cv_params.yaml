@@ -1,6 +1,9 @@
 cv_decision_making:
   ros__parameters:
-    camera_topic: 'video_source/raw'
+    # camera topic Options
+    # video_source/raw
+    # camera/image_raw
+    camera_topic: 'camera/image_raw'
     log_severity: 'DEBUG'
     feature_type: 'circle'
     red1_low:    [0,100,100]
