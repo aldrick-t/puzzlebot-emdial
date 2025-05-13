@@ -31,7 +31,7 @@ def generate_launch_description():
     # This plugin is located in the puzzlebot_gazebo/puzzlebot_gazebo folder 
     # is called publish_wr_wl.py
     # This plugin is used to publish the wheel speeds of the robot 
-    aldrick = True
+    aldrick = False
 
     # World and robot file names
     #world_file = 'puzzlebot_arena.world' # Default MCR2 world

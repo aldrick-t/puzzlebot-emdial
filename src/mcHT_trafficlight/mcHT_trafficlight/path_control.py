@@ -58,14 +58,16 @@ class pathControl(Node):
         # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
         
         # Control gains
-        self.kp_v = 0.6
-        self.ki_v = 0.1
-        self.kp_w = 0.8
-        self.ki_w = 0.2
+        self.kp_v = 0.4
+        self.ki_v = 0.2
+        self.kp_w = 2.0
+        self.ki_w = 0.05
+        self.kd_w = 0.2
 
         # Limits for integrals (anti-windup)
         self.integral_error_d_max = 1.0
         self.integral_error_theta_max = 1.0
+        self.prev_error_theta = 0.0
 
         # Error variables
         self.integral_error_d = 0.0
@@ -124,63 +126,84 @@ class pathControl(Node):
         if self.goal_received and self.moving:
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
-            # Update integrals ONLY if error is not too small
-            if abs(ed) > 0.05:
-                self.integral_error_d += ed * dt
-                self.integral_error_d = np.clip(self.integral_error_d, -self.integral_error_d_max, self.integral_error_d_max)
-            else:
-                self.integral_error_d = 0.0  # Reset if error is small
-                
+            # Discrete PI control for Linear Velocity (ed)
+            # --- Update errors history ---
+            if not hasattr(self, 'e_d'):
+                self.e_d = [0.0, 0.0, 0.0]  # current, prev, prev2
+                self.u_d = [0.0, 0.0]        # current, prev
 
-            if abs(etheta) > 0.05:
-                self.integral_error_theta += etheta * dt
-                self.integral_error_theta = np.clip(self.integral_error_theta, -self.integral_error_theta_max, self.integral_error_theta_max)
-            else:
-                self.integral_error_theta = 0.0  # Reset if error is small   
-                
+            self.e_d = [ed, self.e_d[0], self.e_d[1]]
 
-            # PI control for linear and angular velocity
-            v = self.kp_v * ed + self.ki_v * self.integral_error_d
-            w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
+            # Coefficients for Discrete PI (K1, K2, K3 for linear velocity)
+            T = dt  # Use real sampling time
+            kp_v = self.kp_v
+            ki_v = 0.0
+            kd_v = self.ki_v  # Derivative not used in linear velocity
+            K1_v = kp_v + T * ki_v + kd_v / T
+            K2_v = -kp_v - 2.0 * kd_v / T
+            K3_v = kd_v / T
 
-            # Saturate speeds
-            v = np.clip(v, 0.0, 0.4)
-            w = np.clip(w, -1.0, 1.0)
+            # Compute control output
+            u_d_current = self.u_d[0] + K1_v * self.e_d[0] + K2_v * self.e_d[1] + K3_v * self.e_d[2]
 
+            # Saturate velocity
+            v = np.clip(u_d_current, 0.0, 0.4)
+            #v *= 0.95
+            self.u_d = [u_d_current, self.u_d[0]]
+
+            # Discrete PID control for Angular Velocity (etheta)
+            if not hasattr(self, 'e_theta'):
+                self.e_theta = [0.0, 0.0, 0.0]  # current, prev, prev2
+                self.u_theta = [0.0, 0.0]        # current, prev
+
+            self.e_theta = [etheta, self.e_theta[0], self.e_theta[1]]
+
+            # Coefficients for Discrete PID (K1, K2, K3 for angular velocity)
+            kp_w = self.kp_w
+            ki_w = 0.0
+            kd_w = self.kd_w
+            K1_w = kp_w + T * ki_w + kd_w / T
+            K2_w = -kp_w - 2.0 * kd_w / T
+            K3_w = kd_w / T
+
+            # Compute control output
+            u_theta_current = self.u_theta[0] + K1_w * self.e_theta[0] + K2_w * self.e_theta[1] + K3_w * self.e_theta[2]
+
+            # Saturate angular velocity
+            w = np.clip(u_theta_current, -0.9, 0.9)
+            self.u_theta = [u_theta_current, self.u_theta[0]]
+
+            # Traffic light effect
+            if self.yellow_light:
+                v *= 0.5
+
+            # Publish cmd_vel
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
-
-            if self.yellow_light:
-                self.cmd_vel.linear.x *= 0.5
-                self.cmd_vel.angular.z *= 1.0
+            self.cmd_vel_pub.publish(self.cmd_vel)
 
             # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
-                
-                ed = 0.0  # Reset distance error if angle error is small
-                etheta = 0.0  # Reset angle error if distance error is small
-                          
-                # Reset integrals
-                self.integral_error_d = 0.0
-                self.integral_error_theta = 0.0
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
+                self.cmd_vel_pub.publish(self.cmd_vel)
                 self.goal_received = False
-                self.next_goal_pub.publish(Empty())
-                
 
-            self.cmd_vel_pub.publish(self.cmd_vel)
-        
+                # Reset control states
+                self.e_d = [0.0, 0.0, 0.0]
+                self.u_d = [0.0, 0.0]
+                self.e_theta = [0.0, 0.0, 0.0]
+                self.u_theta = [0.0, 0.0]
+
+                self.next_goal_pub.publish(Empty())
         elif self.goal_received and not self.moving:
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
-
-
-
         else:
             self.get_logger().info("Waiting for goal")
+
           
 
     def get_errors(self, xr, yr, xg, yg, theta_r):
