@@ -58,14 +58,16 @@ class pathControl(Node):
         # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
         
         # Control gains
-        self.kp_v = 0.6
-        self.ki_v = 0.1
-        self.kp_w = 0.8
-        self.ki_w = 0.2
+        self.kp_v = 0.4
+        self.ki_v = 0.05
+        self.kp_w = 1.0
+        self.ki_w = 0.1
+        self.kd_w = 0.2
 
         # Limits for integrals (anti-windup)
         self.integral_error_d_max = 1.0
         self.integral_error_theta_max = 1.0
+        self.prev_error_theta = 0.0
 
         # Error variables
         self.integral_error_d = 0.0
@@ -127,11 +129,15 @@ class pathControl(Node):
             # Update integrals ONLY if error is not too small
             if abs(ed) > 0.05:
                 self.integral_error_d += ed * dt
+                # clamp wind-up
                 self.integral_error_d = np.clip(self.integral_error_d, -self.integral_error_d_max, self.integral_error_d_max)
             else:
                 self.integral_error_d = 0.0  # Reset if error is small
                 
-
+            # —— ANGULAR PID ——
+            # derivative of the error
+            d_theta = (etheta - self.prev_error_theta) / dt
+            self.prev_error_theta = etheta
             if abs(etheta) > 0.05:
                 self.integral_error_theta += etheta * dt
                 self.integral_error_theta = np.clip(self.integral_error_theta, -self.integral_error_theta_max, self.integral_error_theta_max)
@@ -139,20 +145,6 @@ class pathControl(Node):
                 self.integral_error_theta = 0.0  # Reset if error is small   
                 
 
-            # PI control for linear and angular velocity
-            v = self.kp_v * ed + self.ki_v * self.integral_error_d
-            w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
-
-            # Saturate speeds
-            v = np.clip(v, 0.0, 0.4)
-            w = np.clip(w, -1.0, 1.0)
-
-            self.cmd_vel.linear.x = v
-            self.cmd_vel.angular.z = w
-
-            if self.yellow_light:
-                self.cmd_vel.linear.x *= 0.5
-                self.cmd_vel.angular.z *= 1.0
 
             # Check if goal is reached
             if ed < self.goal_threshold:
@@ -168,6 +160,26 @@ class pathControl(Node):
                 self.cmd_vel.angular.z = 0.0
                 self.goal_received = False
                 self.next_goal_pub.publish(Empty())
+            
+            else:
+                # PI control for linear and angular velocity
+                v = self.kp_v * ed + self.ki_v * self.integral_error_d
+                w = (
+                    self.kp_w * etheta
+                    + self.ki_w * self.integral_error_theta
+                    + self.kd_w * d_theta
+                )
+
+                # Saturate speeds
+                v = np.clip(v, 0.0, 0.4)
+                w = np.clip(w, -0.9, 0.9)
+
+                self.cmd_vel.linear.x = v
+                self.cmd_vel.angular.z = w
+
+                if self.yellow_light:
+                    self.cmd_vel.linear.x *= 0.5
+                    self.cmd_vel.angular.z *= 1.0
                 
 
             self.cmd_vel_pub.publish(self.cmd_vel)
@@ -175,6 +187,7 @@ class pathControl(Node):
         elif self.goal_received and not self.moving:
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
+
             self.cmd_vel_pub.publish(self.cmd_vel)
 
 
