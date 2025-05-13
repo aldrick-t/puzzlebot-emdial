@@ -40,7 +40,7 @@ class CVExample(Node):
 
         # Subscriber & publishers
         self.sub = self.create_subscription(Image, self.camera_topic, self.camera_callback, 10)
-        self.pub = self.create_publisher(Image, 'processed_img', 10)
+        # self.pub = self.create_publisher(Image, 'processed_img', 10)
         self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)
 
         self.image_received_flag = False
@@ -84,7 +84,7 @@ class CVExample(Node):
             color, out_img = self.detect_color_and_feature(cv_img)
 
             # Publish processed image
-            self.pub.publish(self.bridge.cv2_to_imgmsg(out_img, 'bgr8'))
+            # self.pub.publish(self.bridge.cv2_to_imgmsg(out_img, 'bgr8'))
 
             # Publish detected color
             if color is not None:
@@ -139,7 +139,7 @@ class CVExample(Node):
                 return name, out
 
         # no detection
-        self.show_mosaic(small, mask_r, mask_y, mask_g)
+        # self.show_mosaic(small, mask_r, mask_y, mask_g)
         return None, small
 
     def isolate_shape(self, img, mask, color_name, contour, min_area):
@@ -171,10 +171,10 @@ class CVExample(Node):
                 cv2.drawContours(out, [approx], -1, draw_color, 2)
                 self.last_feature = ('square', approx)
 
-        self.show_mosaic(img, mask_r=(mask if color_name == 'RED' else None),
-                               mask_y=(mask if color_name == 'YELLOW' else None),
-                               mask_g=(mask if color_name == 'GREEN' else None),
-                               processed_override=out)
+        # self.show_mosaic(img, mask_r=(mask if color_name == 'RED' else None),
+                            #    mask_y=(mask if color_name == 'YELLOW' else None),
+                            #    mask_g=(mask if color_name == 'GREEN' else None),
+                            #    processed_override=out)
         return out
 
     def show_mosaic(self, processed, mask_r, mask_y, mask_g, processed_override=None):
@@ -218,7 +218,7 @@ class CVExample(Node):
 
         top    = np.hstack([sw, proc, comb])
         bottom = np.hstack([mr, my, mg])
-        cv2.imshow('Debug View', np.vstack([top,bottom]))
+        #cv2.imshow('Debug View', np.vstack([top,bottom]))
         cv2.waitKey(1)
 
     def timer_callback(self):

@@ -62,5 +62,5 @@ def generate_launch_description():
         path_generator,
         odometry_node,
         path_control,
-        plotter_monitor,
+        #plotter_monitor,
     ])
