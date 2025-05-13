@@ -36,3 +36,7 @@
 Dockerfile
 .devcontainer
 .devcontainer/
+
+# Python specific
+__pycache__/
+.venv/
