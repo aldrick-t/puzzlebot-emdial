@@ -76,6 +76,8 @@ class pathControl(Node):
         self.red_light = False
         self.green_light = False
 
+        self.moving = True
+
         # Time
         self.last_time = self.get_clock().now()
 
@@ -152,15 +154,10 @@ class pathControl(Node):
             if self.yellow_light:
                 self.cmd_vel.linear.x *= 0.5
                 self.cmd_vel.angular.z *= 1.0
-
-            if self.red_light:
+            
+            if not self.moving:
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
-                self.get_logger().info("Red light detected, stopping robot")
-
-            if self.green_light:
-                self.cmd_vel.linear.x = v
-                self.cmd_vel.angular.z = w
 
             # Check if goal is reached
             if ed < self.goal_threshold:
@@ -182,7 +179,7 @@ class pathControl(Node):
 
             self.cmd_vel_pub.publish(self.cmd_vel)
         
-        elif self.goal_received and not self.moving:
+        if self.goal_received and not self.moving:
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
