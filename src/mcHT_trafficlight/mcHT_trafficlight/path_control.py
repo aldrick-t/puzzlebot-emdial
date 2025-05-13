@@ -100,6 +100,7 @@ class pathControl(Node):
                 self.red_light = True
                 self.yellow_light = False
                 self.green_light = False
+                self.moving = False
             elif traffic_light_color == "YELLOW":
                 self.red_light = False
                 self.yellow_light = True
@@ -108,6 +109,8 @@ class pathControl(Node):
                 self.red_light = False
                 self.yellow_light = False
                 self.green_light = True
+                self.moving = True
+
             else:
                 self.get_logger().info("Unknown traffic light color detected")
                 return
