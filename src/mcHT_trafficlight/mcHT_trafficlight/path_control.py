@@ -120,7 +120,7 @@ class pathControl(Node):
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now        
 
-        if self.goal_received:
+        if self.goal_received and self.moving:
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
             # Update integrals ONLY if error is not too small
@@ -180,6 +180,11 @@ class pathControl(Node):
                 
                 return
 
+            self.cmd_vel_pub.publish(self.cmd_vel)
+        
+        elif self.goal_received and not self.moving:
+            self.cmd_vel.linear.x = 0.0
+            self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
 
         else:
