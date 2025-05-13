@@ -44,7 +44,7 @@ class CVExample(Node):
         self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)
 
         self.image_received_flag = False
-        self.create_timer(0.1, self.timer_callback)
+        self.create_timer(0.2, self.timer_callback)
 
         cv2.namedWindow('Debug View', cv2.WINDOW_NORMAL)
 
