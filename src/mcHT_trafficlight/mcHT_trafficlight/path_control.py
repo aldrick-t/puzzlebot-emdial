@@ -29,7 +29,7 @@ class pathControl(Node):
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
         self.traffic_light_color_sub = self.create_subscription(String, 'traffic_light_color', self.traffic_light_color_cb, 10)
 
-
+        
         
         # Handle shutdown gracefully
         signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
@@ -42,7 +42,7 @@ class pathControl(Node):
         # Declare parameters
         self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
         self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).get_parameter_value().double_value
-
+        self.start = self.declare_parameter('start', False).get_parameter_value().bool_value
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
@@ -87,6 +87,9 @@ class pathControl(Node):
         
         self.get_logger().info("Node initialized!!")
         time.sleep(5)
+        while self.start == False:
+            self.add_on_set_parameters_callback(self.parameter_callback)
+
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.get_logger().info("Requested first Goal")
 
@@ -238,6 +241,8 @@ class pathControl(Node):
             elif param.name == 'kp_w' and param.type_ == param.Type.DOUBLE:
                 self.kp_w = param.value
                 self.get_logger().info(f"Updated kp_w: {self.kp_w}")
+            elif param.name == 'start' and param.type_ == param.Type.BOOL:
+                self.start = param.value
         return SetParametersResult(successful=True)
 
     def shutdown_function(self, signum, frame):

@@ -12,6 +12,8 @@ import rclpy.logging
 from rclpy.node import Node
 from std_msgs.msg import Empty
 from geometry_msgs.msg import Pose2D
+from rcl_interfaces.msg import SetParametersResult
+
 
 class PathGenerator(Node):
     def __init__(self):
@@ -22,10 +24,10 @@ class PathGenerator(Node):
         rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
 
         # load parameters
-        raw = self.declare_parameter('path_points', [0.0, 0.0]).value
-        if len(raw) % 2 != 0:
+        self.raw = self.declare_parameter('path_points', [0.0, 0.0]).value
+        if len(self.raw) % 2 != 0:
             self.get_logger().fatal('path_points must have an even number of elements (x,y pairs)')
-        self.points = [[raw[i], raw[i+1]] for i in range(0, len(raw), 2)]
+        self.points = [[self.raw[i], self.raw[i+1]] for i in range(0, len(self.raw), 2)]
 
         if not self.points:
             self.get_logger().error('No path points specified!')
@@ -43,6 +45,7 @@ class PathGenerator(Node):
 
     def _next_goal_cb(self, msg):
         # Increment index only after publishing the current point
+        self.add_on_set_parameters_callback(self.parameter_callback)
         if self.index + 1 >= len(self.points):
             self.get_logger().info('Reached end of path, no more points.')
         self.index += 1
@@ -59,6 +62,18 @@ class PathGenerator(Node):
         self.goal_pub.publish(msg)
 
         self.get_logger().info(f'Publishing point #{idx}: {point}')
+    
+    def parameter_callback(self, params):
+        for param in params:
+            if param.name == 'path_points' and param.value != self.raw:
+                self.get_logger().info(f'Updating path points to: {param.value}')
+                self.raw = param.value
+                if len(self.raw) % 2 != 0:
+                    self.get_logger().fatal('path_points must have an even number of elements (x,y pairs)')
+                self.points = [[self.raw[i], self.raw[i+1]] for i in range(0, len(self.raw), 2)]
+                self.get_logger().debug(f'Updated path points: {self.points}')
+        return SetParametersResult(successful=True)
+
 
 def main(args=None):
     rclpy.init(args=args)
