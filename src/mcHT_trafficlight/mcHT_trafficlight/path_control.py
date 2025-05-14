@@ -89,6 +89,7 @@ class pathControl(Node):
         time.sleep(5)
         while self.start == False:
             self.add_on_set_parameters_callback(self.parameter_callback)
+            self.update_parameters()
 
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.get_logger().info("Requested first Goal")
@@ -244,6 +245,10 @@ class pathControl(Node):
             elif param.name == 'start' and param.type_ == param.Type.BOOL:
                 self.start = param.value
         return SetParametersResult(successful=True)
+    
+    def update_parameters(self):
+        # Static
+        self.camera_topic = self.get_parameter('start').value
 
     def shutdown_function(self, signum, frame):
         # Handle shutdown gracefully
@@ -254,6 +259,7 @@ class pathControl(Node):
         self.pub_cmd_vel.publish(stop_twist) # publish it to stop the robot before shutting down
         rclpy.shutdown() # Shutdown the node
         sys.exit(0) # Exit the program
+
     
 def main(args=None):
     rclpy.init(args=args)

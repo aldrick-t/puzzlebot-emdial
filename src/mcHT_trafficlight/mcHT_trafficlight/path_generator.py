@@ -31,7 +31,7 @@ class PathGenerator(Node):
 
         if not self.points:
             self.get_logger().error('No path points specified!')
-
+        self.update_parameters()
         # Initialize index to -1 to wait for the first /next_goal message
         self.index = -1
 
@@ -46,6 +46,7 @@ class PathGenerator(Node):
     def _next_goal_cb(self, msg):
         # Increment index only after publishing the current point
         self.add_on_set_parameters_callback(self.parameter_callback)
+        self.update_parameters()
         if self.index + 1 >= len(self.points):
             self.get_logger().info('Reached end of path, no more points.')
         self.index += 1
@@ -73,6 +74,10 @@ class PathGenerator(Node):
                 self.points = [[self.raw[i], self.raw[i+1]] for i in range(0, len(self.raw), 2)]
                 self.get_logger().debug(f'Updated path points: {self.points}')
         return SetParametersResult(successful=True)
+    def update_parameters(self):
+        # Static
+        self.camera_topic = self.get_parameter('path_points').value
+        
 
 
 def main(args=None):
