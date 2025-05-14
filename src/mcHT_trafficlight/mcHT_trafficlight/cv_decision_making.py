@@ -7,6 +7,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from rclpy.logging import LoggingSeverity
 from rcl_interfaces.msg import SetParametersResult
+from rclpy.qos import qos_profile_sensor_data
 
 class CVExample(Node):
     def __init__(self):
@@ -39,14 +40,14 @@ class CVExample(Node):
         self.get_logger().info(f"Initialized with topic={self.camera_topic}, feature={self.feature_type}, min_area_ratio={self.min_area_ratio}")
 
         # Subscriber & publishers
-        self.sub = self.create_subscription(Image, self.camera_topic, self.camera_callback, 10)
+        self.sub = self.create_subscription(Image, self.camera_topic, self.camera_callback, qos_profile_sensor_data)
         # self.pub = self.create_publisher(Image, 'processed_img', 10)
         self.color_pub = self.create_publisher(String, 'traffic_light_color', 10)
 
         self.image_received_flag = False
         self.create_timer(0.2, self.timer_callback)
 
-        cv2.namedWindow('Debug View', cv2.WINDOW_NORMAL)
+        # cv2.namedWindow('Debug View', cv2.WINDOW_NORMAL)
 
     def parameters_callback(self, params):
         for p in params:
@@ -135,8 +136,8 @@ class CVExample(Node):
                 if area < min_area:
                     continue
                 # found a valid color region -> isolate shape
-                out = self.isolate_shape(small, mask, name, c, min_area)
-                return name, out
+                # out = self.isolate_shape(small, mask, name, c, min_area) #VITAL FOR SHAPE DETECTS
+                return name,# out
 
         # no detection
         # self.show_mosaic(small, mask_r, mask_y, mask_g)
@@ -168,7 +169,7 @@ class CVExample(Node):
                     self.get_logger().info(f"{color_name} square rejected (area={area:.1f} < min_area={min_area:.1f})")
                     return img
                 self.get_logger().info(f"{color_name} square corners={approx.reshape(-1, 2).tolist()}")
-                cv2.drawContours(out, [approx], -1, draw_color, 2)
+                # cv2.drawContours(out, [approx], -1, draw_color, 2)
                 self.last_feature = ('square', approx)
 
         # self.show_mosaic(img, mask_r=(mask if color_name == 'RED' else None),
