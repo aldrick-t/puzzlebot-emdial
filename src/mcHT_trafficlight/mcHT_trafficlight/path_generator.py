@@ -80,10 +80,10 @@ class PathGenerator(Node):
                 self.points = [[self.raw[i], self.raw[i+1]] for i in range(0, len(self.raw), 2)]
                 self.get_logger().debug(f'Updated path points: {self.points}')
         return SetParametersResult(successful=True)
+
     def update_parameters(self):
-        # Static
-        self.camera_topic = self.get_parameter('path_points').value
-        
+        # Do not override the dynamic 'path_points'. This method is now a no‑op.
+        pass
 
 
 def main(args=None):

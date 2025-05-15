@@ -86,9 +86,8 @@ class pathControl(Node):
         
         self.get_logger().info("Node initialized!!")
         time.sleep(5)
-        while self.start == False:
-            self.add_on_set_parameters_callback(self.parameter_callback)
-            self.update_parameters()
+        while not self.start:
+            rclpy.spin_once(self, timeout_sec=0.1)
 
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.get_logger().info("Requested first Goal")
@@ -246,8 +245,8 @@ class pathControl(Node):
         return SetParametersResult(successful=True)
     
     def update_parameters(self):
-        # Static
-        self.camera_topic = self.get_parameter('start').value
+        # No static update here; dynamic parameters are handled by parameter_callback.
+        pass
 
     def shutdown_function(self, signum, frame):
         # Handle shutdown gracefully
