@@ -15,6 +15,8 @@ from geometry_msgs.msg import Twist
 import numpy as np
 import signal # To handle Ctrl+C
 import sys # To exit the program
+from std_msgs.msg import String
+import time
 
 class pathControl(Node):
     def __init__(self):
@@ -25,19 +27,24 @@ class pathControl(Node):
         self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
         self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
-        
+        self.traffic_light_color_sub = self.create_subscription(String, 'traffic_light_color', self.traffic_light_color_cb, 10)
+
         # Handle shutdown gracefully
-        signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
+        signal.signal(signal.SIGINT, self.shutdown_function)
 
-        #logger config
-        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        # Logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         self.get_logger().debug("Logger set to DEBUG level")
-        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG)
 
-        # Declare parameters
-        self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.goal_threshold = self.declare_parameter('goal_threshold', 0.03).get_parameter_value().double_value
+        # Declare parameters with descriptors for dynamic reconfigure
+        from rcl_interfaces.msg import ParameterDescriptor
+        self.robust_margin = self.declare_parameter('robust_margin', 0.9).value
+        self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).value
+        start_descriptor = ParameterDescriptor(description="Start parameter to trigger the controller")
+        self.start = self.declare_parameter('start', False, start_descriptor).value
 
+        # Register dynamic parameter callback once
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
@@ -49,14 +56,11 @@ class pathControl(Node):
         self.yr = 0.0 # Robot position y[m]
         self.theta_r = 0.0 # Robot orientation [rad]
 
-        # self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
-        # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
-        
         # Control gains
-        self.kp_v = 0.5
+        self.kp_v = 0.7
         self.ki_v = 0.1
-        self.kp_w = 1.0
-        self.ki_w = 0.2
+        self.kp_w = 0.7
+        self.ki_w = 0.1
 
         # Limits for integrals (anti-windup)
         self.integral_error_d_max = 1.0
@@ -66,108 +70,125 @@ class pathControl(Node):
         self.integral_error_d = 0.0
         self.integral_error_theta = 0.0
 
+        # Traffic color lights
+        self.yellow_light = False
+        self.red_light = False
+        self.green_light = False
+
+        self.moving = True
+
         # Time
         self.last_time = self.get_clock().now()
 
         self.cmd_vel = Twist()
-        timer_period = 0.05 
+        timer_period = 0.02 
         self.create_timer(timer_period, self.main_timer_cb)
+        
         self.get_logger().info("Node initialized!!")
+        time.sleep(5)
+        while not self.start:
+            rclpy.spin_once(self, timeout_sec=0.1)
 
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.get_logger().info("Requested first Goal")
 
+    def traffic_light_color_cb(self, msg):
+        # Check if the ros message is empty
+        if msg.data == "":
+            self.get_logger().info("No traffic light detected")
+            return
+        else:
+            traffic_light_color = msg.data
+            self.get_logger().info(f"Traffic light color detected: {traffic_light_color}")
+            if traffic_light_color == "RED":
+                self.red_light = True
+                self.yellow_light = False
+                self.green_light = False
+                self.moving = False
+            elif traffic_light_color == "YELLOW":
+                self.red_light = False
+                self.yellow_light = True
+                self.green_light = False
+            elif traffic_light_color == "GREEN":
+                self.red_light = False
+                self.yellow_light = False
+                self.green_light = True
+                self.moving = True
+
+            else:
+                self.get_logger().info("Unknown traffic light color detected")
+                return
+
     def main_timer_cb(self):
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
-        self.last_time = now
+        self.last_time = now        
 
-        if self.goal_received:
+        if self.goal_received and self.moving:
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
             # Update integrals ONLY if error is not too small
-            if abs(ed) > 0.01:
+            if abs(ed) > 0.05:
                 self.integral_error_d += ed * dt
                 self.integral_error_d = np.clip(self.integral_error_d, -self.integral_error_d_max, self.integral_error_d_max)
             else:
                 self.integral_error_d = 0.0  # Reset if error is small
+                
 
-            if abs(etheta) > 0.005:
+            if abs(etheta) > 0.05:
                 self.integral_error_theta += etheta * dt
                 self.integral_error_theta = np.clip(self.integral_error_theta, -self.integral_error_theta_max, self.integral_error_theta_max)
             else:
-                self.integral_error_theta = 0.0  # Reset if error is small
+                self.integral_error_theta = 0.0  # Reset if error is small   
+                
 
             # PI control for linear and angular velocity
             v = self.kp_v * ed + self.ki_v * self.integral_error_d
             w = self.kp_w * etheta + self.ki_w * self.integral_error_theta
 
             # Saturate speeds
-            v = np.clip(v, 0.0, 0.5)
-            w = np.clip(w, -1.5, 1.5)
+            v = np.clip(v, 0.0, 0.3)
+            w = np.clip(w, -1.2, 1.2)
 
             self.cmd_vel.linear.x = v
             self.cmd_vel.angular.z = w
 
+            if self.yellow_light:
+                self.cmd_vel.linear.x *= 0.5
+                self.cmd_vel.angular.z *= 1.0
+            
+            if not self.moving:
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+
             # Check if goal is reached
             if ed < self.goal_threshold:
                 self.get_logger().info(f"Goal reached: x={self.xg:.2f}, y={self.yg:.2f}")
-                self.goal_received = False
+                
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
+                
                 self.cmd_vel_pub.publish(self.cmd_vel)
-
-                # Reset integrals
+                ed = 0.0  # Reset distance error if angle error is small
+                etheta = 0.0  # Reset angle error if distance error is small
+                
                 self.integral_error_d = 0.0
                 self.integral_error_theta = 0.0
-
+                self.goal_received = False
                 self.next_goal_pub.publish(Empty())
+                
                 return
 
+            self.cmd_vel_pub.publish(self.cmd_vel)
+        
+        if self.goal_received and not self.moving:
+            self.cmd_vel.linear.x = 0.0
+            self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
 
         else:
             self.get_logger().info("Waiting for goal")
-
-        # ## This function is called every 0.05 seconds
-        # if self.goal_received:
-
-        #     self.get_logger().info("Goal received")
-        #     self.get_logger().info(f"Moving to goal: x={self.xg:.2f}, y={self.yg:.2f}")
-
-        #     ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
-
-        #     # Goal Threshold
-        #     if ed < self.goal_threshold: #Threshold value (tolerance) for goal reached in meters.
-        #         self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
-        #         self.get_logger().debug(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
-        #         self.get_logger().debug(f"Current theta: {self.theta_r:.2f}")
-        #         self.get_logger().debug(f"Within thresh: {ed:.2f} m")
-        #         self.goal_received = False
-        #         self.get_logger().debug(f"Goal received: {self.goal_received}")
-        #         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
-        #         self.get_logger().debug("Requested next goal")
-        #         self.cmd_vel.linear.x = 0.0
-        #         self.cmd_vel.angular.z = 0.0
-        #     else:
-        #         self.cmd_vel.linear.x = self.kp_v * ed
-        #         #limit the linear velocity to a maximum of 0.5 m/s
-        #         if self.cmd_vel.linear.x > 0.5:
-        #             self.cmd_vel.linear.x = 0.5
-        #         self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
-        #         if self.cmd_vel.linear.x > 0.5:
-        #             self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
-        #         self.cmd_vel.angular.z = self.kp_w * etheta
-        #         self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-        #         if self.cmd_vel.angular.z > 1.5:
-        #             self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
-
-        #     self.cmd_vel_pub.publish(self.cmd_vel)
-        # else: 
-        #     self.get_logger().info("Waiting for goal")
-        #     self.get_logger().debug(f"Goal received: {self.goal_received}")
-
-            
+          
 
     def get_errors(self, xr, yr, xg, yg, theta_r):
         ## This function computes the errors in x and y
@@ -219,7 +240,13 @@ class pathControl(Node):
             elif param.name == 'kp_w' and param.type_ == param.Type.DOUBLE:
                 self.kp_w = param.value
                 self.get_logger().info(f"Updated kp_w: {self.kp_w}")
+            elif param.name == 'start' and param.type_ == param.Type.BOOL:
+                self.start = param.value
         return SetParametersResult(successful=True)
+    
+    def update_parameters(self):
+        # No static update here; dynamic parameters are handled by parameter_callback.
+        pass
 
     def shutdown_function(self, signum, frame):
         # Handle shutdown gracefully
@@ -230,6 +257,7 @@ class pathControl(Node):
         self.pub_cmd_vel.publish(stop_twist) # publish it to stop the robot before shutting down
         rclpy.shutdown() # Shutdown the node
         sys.exit(0) # Exit the program
+
     
 def main(args=None):
     rclpy.init(args=args)
@@ -239,6 +267,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        
         node.destroy_node()
         rclpy.shutdown()
 

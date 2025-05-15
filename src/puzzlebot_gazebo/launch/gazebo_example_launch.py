@@ -24,10 +24,18 @@ from launch.substitutions import EnvironmentVariable, Command
 
 
 def generate_launch_description():
+    
+    # If this file is used in Aldricks PC
+    # Aldrick's OS is ARM64 therefore the Original Odometry plugin is not compatible
+    # We created a specially modified plugin for Aldrick's PC
+    # This plugin is located in the puzzlebot_gazebo/puzzlebot_gazebo folder 
+    # is called publish_wr_wl.py
+    # This plugin is used to publish the wheel speeds of the robot 
+    aldrick = False
 
     # World and robot file names
     #world_file = 'puzzlebot_arena.world' # Default MCR2 world
-    world_file = 'color_balls.sdf'
+    world_file = 'puzzlebot_arena.world' # Default MCR2 world
     robot = 'puzzlebot_jetson_lidar_ed'
 
     # Robot's initial position
@@ -136,7 +144,16 @@ def generate_launch_description():
             arguments=['camera']
         )
     
-
+    # Conditionally add the publish_wr_wl node
+    if aldrick == True:
+        publish_wr_wl_cmd = Node(
+        package='puzzlebot_gazebo',
+        executable='publish_wr_wl',
+        output='screen',
+        parameters=[{
+            "use_sim_time": use_sim_time,
+        }])
+        l_d.append(publish_wr_wl_cmd)
  
     l_d = [
         declare_x_arg, declare_y_arg, declare_th_arg, declare_sim_time_arg, declare_pause_arg,

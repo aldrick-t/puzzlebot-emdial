@@ -31,6 +31,9 @@ setup(
             'square_control = mcHT_trafficlight.square_control:main',
             'go_to_goal = mcHT_trafficlight.go_to_goal:main',
             'cv_decision_making = mcHT_trafficlight.cv_decision_making:main', 
+            'webcam_publisher = scripts.webcam_publisher:main',
+            'plotter_monitor = mcHT_trafficlight.plotter_monitor:main',
+            'visual_monitor = mcHT_trafficlight.visual_monitor:main',
         ],
     },
 )

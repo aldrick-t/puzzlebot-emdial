@@ -1,0 +1,19 @@
+cv_decision_making:
+  ros__parameters:
+    # camera topic Options
+    # video_source/raw
+    # camera/image_raw
+    camera_topic: 'video_source/raw'
+    log_severity: 'DEBUG'
+    feature_type: 'circle'
+
+    # HSV color space thresholds
+    red1_low:    [0,100,100]
+    red1_high:   [5,255,255]
+    red2_low:    [175,100,100]
+    red2_high:   [180,255,255]
+    yellow_low:  [18,100,100]
+    yellow_high: [30,255,255]
+    green_low:   [40,40,40]
+    green_high:  [80,255,255]
+    min_area_ratio: 0.01
