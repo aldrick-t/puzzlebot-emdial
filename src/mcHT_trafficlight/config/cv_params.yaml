@@ -6,6 +6,8 @@ cv_decision_making:
     camera_topic: 'video_source/raw'
     log_severity: 'DEBUG'
     feature_type: 'circle'
+
+    # HSV color space thresholds
     red1_low:    [0,100,100]
     red1_high:   [5,255,255]
     red2_low:    [175,100,100]
