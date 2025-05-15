@@ -11,9 +11,13 @@ path_generator:
     #path_points: [1.2, 0.0, 3.6, -0.6, 4.8, -1.2, 6.0, -0.6] # Sickle (Triangle 3A)
     #path_points: [4.8, 0.0] # Speed Validation (Yellow - Green)
     #path_points: [1.8, 0.6, 3.0, 0.0, 4.2, -0.6, 6.0, -0.6] # Sickle Reverse(Triangle 3A)
-    path_points: "2.0, 0.0, 3.0, 0.7, 3.0, 2.2, 3.5, 3.2" # Sickle (Triangle 3A)
+
+    #path_points: "2.0, 0.0, 3.0, 0.7, 3.0, 2.2, 3.5, 3.2" # 2005 
 
     
+    #path_points: "1.0, -0.5, 2.5, -0.5, 2.2, -1.5, 2.2, -3.5" # 2005 reverse
+
+    path_points: "1.0, 0.5, 2.5, -0.5, 3.2, -1.5, 3.2, -3.5" # 2005 reverse
 
 path_control:
   ros__parameters:
