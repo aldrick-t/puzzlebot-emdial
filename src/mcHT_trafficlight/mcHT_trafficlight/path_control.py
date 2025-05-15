@@ -29,20 +29,22 @@ class pathControl(Node):
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
         self.traffic_light_color_sub = self.create_subscription(String, 'traffic_light_color', self.traffic_light_color_cb, 10)
 
-
-        
         # Handle shutdown gracefully
-        signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
+        signal.signal(signal.SIGINT, self.shutdown_function)
 
-        #logger config
-        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        # Logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         self.get_logger().debug("Logger set to DEBUG level")
-        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG)
 
-        # Declare parameters
-        self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).get_parameter_value().double_value
+        # Declare parameters with descriptors for dynamic reconfigure
+        from rcl_interfaces.msg import ParameterDescriptor
+        self.robust_margin = self.declare_parameter('robust_margin', 0.9).value
+        self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).value
+        start_descriptor = ParameterDescriptor(description="Start parameter to trigger the controller")
+        self.start = self.declare_parameter('start', False, start_descriptor).value
 
+        # Register dynamic parameter callback once
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
@@ -54,9 +56,6 @@ class pathControl(Node):
         self.yr = 0.0 # Robot position y[m]
         self.theta_r = 0.0 # Robot orientation [rad]
 
-        # self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
-        # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
-        
         # Control gains
         self.kp_v = 0.7
         self.ki_v = 0.1
@@ -87,6 +86,9 @@ class pathControl(Node):
         
         self.get_logger().info("Node initialized!!")
         time.sleep(5)
+        while not self.start:
+            rclpy.spin_once(self, timeout_sec=0.1)
+
         self.next_goal_pub.publish(Empty()) # Publish empty message to notify next goal
         self.get_logger().info("Requested first Goal")
 
@@ -238,7 +240,13 @@ class pathControl(Node):
             elif param.name == 'kp_w' and param.type_ == param.Type.DOUBLE:
                 self.kp_w = param.value
                 self.get_logger().info(f"Updated kp_w: {self.kp_w}")
+            elif param.name == 'start' and param.type_ == param.Type.BOOL:
+                self.start = param.value
         return SetParametersResult(successful=True)
+    
+    def update_parameters(self):
+        # No static update here; dynamic parameters are handled by parameter_callback.
+        pass
 
     def shutdown_function(self, signum, frame):
         # Handle shutdown gracefully
@@ -249,6 +257,7 @@ class pathControl(Node):
         self.pub_cmd_vel.publish(stop_twist) # publish it to stop the robot before shutting down
         rclpy.shutdown() # Shutdown the node
         sys.exit(0) # Exit the program
+
     
 def main(args=None):
     rclpy.init(args=args)

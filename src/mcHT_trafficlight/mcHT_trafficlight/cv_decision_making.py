@@ -6,7 +6,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from rclpy.logging import LoggingSeverity
-from rcl_interfaces.msg import SetParametersResult
+from rcl_interfaces.msg import SetParametersResult, ParameterDescriptor
 
 class CVExample(Node):
     def __init__(self):
@@ -19,14 +19,23 @@ class CVExample(Node):
         self.declare_parameter('feature_type', 'circle')
 
         # Dynamic parameters (updatable via rqt_reconfigure)
-        self.declare_parameter('red1_low',  [0, 150, 150])
-        self.declare_parameter('red1_high', [5, 255, 255])
-        self.declare_parameter('red2_low',  [175, 100, 100])
-        self.declare_parameter('red2_high', [180, 255, 255])
-        self.declare_parameter('yellow_low',  [18, 100, 100])
-        self.declare_parameter('yellow_high', [30, 255, 255])
-        self.declare_parameter('green_low',   [40,  40,  40])
-        self.declare_parameter('green_high',  [80, 255, 255])
+        hsv_desc_red_low = ParameterDescriptor(description="Lower HSV threshold for red1")
+        hsv_desc_red_high = ParameterDescriptor(description="Upper HSV threshold for red1")
+        hsv_desc_red2_low = ParameterDescriptor(description="Lower HSV threshold for red2")
+        hsv_desc_red2_high = ParameterDescriptor(description="Upper HSV threshold for red2")
+        hsv_desc_yellow_low = ParameterDescriptor(description="Lower HSV threshold for yellow")
+        hsv_desc_yellow_high = ParameterDescriptor(description="Upper HSV threshold for yellow")
+        hsv_desc_green_low = ParameterDescriptor(description="Lower HSV threshold for green")
+        hsv_desc_green_high = ParameterDescriptor(description="Upper HSV threshold for green")
+
+        self.declare_parameter('red1_low', [0, 150, 150], hsv_desc_red_low)
+        self.declare_parameter('red1_high', [5, 255, 255], hsv_desc_red_high)
+        self.declare_parameter('red2_low', [175, 100, 100], hsv_desc_red2_low)
+        self.declare_parameter('red2_high', [180, 255, 255], hsv_desc_red2_high)
+        self.declare_parameter('yellow_low', [18, 100, 100], hsv_desc_yellow_low)
+        self.declare_parameter('yellow_high', [30, 255, 255], hsv_desc_yellow_high)
+        self.declare_parameter('green_low', [40, 40, 40], hsv_desc_green_low)
+        self.declare_parameter('green_high', [80, 255, 255], hsv_desc_green_high)
         self.declare_parameter('min_area_ratio', 0.01)
 
         # Register parameter-change callback
