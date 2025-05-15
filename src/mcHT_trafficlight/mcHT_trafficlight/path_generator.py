@@ -18,20 +18,27 @@ from rcl_interfaces.msg import SetParametersResult
 class PathGenerator(Node):
     def __init__(self):
         super().__init__('path_generator')
-        #logger config
-        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        # Logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         self.get_logger().debug("Logger set to DEBUG level")
-        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG)
 
-        # load parameters
-        self.raw = self.declare_parameter('path_points', [0.0, 0.0]).value
+        # declare the parameter with a descriptor for dynamic reconfigure
+        from rcl_interfaces.msg import ParameterDescriptor
+        pts_descriptor = ParameterDescriptor(description="List of x,y coordinates for path points (even number of elements).")
+        self.raw = self.declare_parameter('path_points', [0.0, 0.0], pts_descriptor).value
+
         if len(self.raw) % 2 != 0:
             self.get_logger().fatal('path_points must have an even number of elements (x,y pairs)')
         self.points = [[self.raw[i], self.raw[i+1]] for i in range(0, len(self.raw), 2)]
 
         if not self.points:
             self.get_logger().error('No path points specified!')
+
+        # Register dynamic parameter callback once here
+        self.add_on_set_parameters_callback(self.parameter_callback)
         self.update_parameters()
+
         # Initialize index to -1 to wait for the first /next_goal message
         self.index = -1
 
@@ -45,7 +52,6 @@ class PathGenerator(Node):
 
     def _next_goal_cb(self, msg):
         # Increment index only after publishing the current point
-        self.add_on_set_parameters_callback(self.parameter_callback)
         self.update_parameters()
         if self.index + 1 >= len(self.points):
             self.get_logger().info('Reached end of path, no more points.')

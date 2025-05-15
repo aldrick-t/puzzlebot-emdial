@@ -29,20 +29,22 @@ class pathControl(Node):
         self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
         self.traffic_light_color_sub = self.create_subscription(String, 'traffic_light_color', self.traffic_light_color_cb, 10)
 
-        
-        
         # Handle shutdown gracefully
-        signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
+        signal.signal(signal.SIGINT, self.shutdown_function)
 
-        #logger config
-        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set logger to DEBUG level
+        # Logger config
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         self.get_logger().debug("Logger set to DEBUG level")
-        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG) # Set rclpy logger to DEBUG level
+        rclpy.logging.get_logger('rclpy').set_level(rclpy.logging.LoggingSeverity.DEBUG)
 
-        # Declare parameters
-        self.robust_margin = self.declare_parameter('robust_margin', 0.9).get_parameter_value().double_value
-        self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).get_parameter_value().double_value
-        self.start = self.declare_parameter('start', False).get_parameter_value().bool_value
+        # Declare parameters with descriptors for dynamic reconfigure
+        from rcl_interfaces.msg import ParameterDescriptor
+        self.robust_margin = self.declare_parameter('robust_margin', 0.9).value
+        self.goal_threshold = self.declare_parameter('goal_threshold', 0.02).value
+        start_descriptor = ParameterDescriptor(description="Start parameter to trigger the controller")
+        self.start = self.declare_parameter('start', False, start_descriptor).value
+
+        # Register dynamic parameter callback once
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.goal_received = False
@@ -54,9 +56,6 @@ class pathControl(Node):
         self.yr = 0.0 # Robot position y[m]
         self.theta_r = 0.0 # Robot orientation [rad]
 
-        # self.kp_v = self.declare_parameter('kp_v', 0.2).get_parameter_value().double_value # Linear velocity gain
-        # self.kp_w = self.declare_parameter('kp_w', 1.2).get_parameter_value().double_value # Angular velocity gain
-        
         # Control gains
         self.kp_v = 0.7
         self.ki_v = 0.1
