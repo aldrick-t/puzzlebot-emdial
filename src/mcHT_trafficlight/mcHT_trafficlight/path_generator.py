@@ -42,7 +42,7 @@ class PathGenerator(Node):
 
         # Register dynamic parameter callback once here
         self.add_on_set_parameters_callback(self.parameter_callback)
-        self.update_parameters()
+        #self.update_parameters()
 
         # Initialize index to -1 to wait for the first /next_goal message
         self.index = -1
