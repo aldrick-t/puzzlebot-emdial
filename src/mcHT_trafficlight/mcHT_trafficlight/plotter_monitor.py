@@ -11,19 +11,19 @@ class LivePlotNode(Node):
 
         # data buffers
         self.start_time = None
-        self.times_v,   self.v_vals    = deque(maxlen=1000), deque(maxlen=1000)
-        self.times_w,   self.w_vals    = deque(maxlen=1000), deque(maxlen=1000)
-        self.ctrl_t,    self.cmd_v     = deque(maxlen=1000), deque(maxlen=1000)
-        self.ctrl_t_w,  self.cmd_w     = deque(maxlen=1000), deque(maxlen=1000)
-        self.err_t,     self.ed        = deque(maxlen=1000), deque(maxlen=1000)
-        self.err_t_th,  self.etheta    = deque(maxlen=1000), deque(maxlen=1000)
-        self.x_data,    self.y_data    = deque(maxlen=1000), deque(maxlen=1000)
+        self.times_v,   self.v_vals    = deque(maxlen=100), deque(maxlen=100)
+        self.times_w,   self.w_vals    = deque(maxlen=100), deque(maxlen=100)
+        self.ctrl_t,    self.cmd_v     = deque(maxlen=100), deque(maxlen=100)
+        self.ctrl_t_w,  self.cmd_w     = deque(maxlen=100), deque(maxlen=100)
+        self.err_t,     self.ed        = deque(maxlen=100), deque(maxlen=100)
+        self.err_t_th,  self.etheta    = deque(maxlen=100), deque(maxlen=100)
+        self.x_data,    self.y_data    = deque(maxlen=100), deque(maxlen=100)
         self.goals                         = []  # list of (xg, yg)
         self.last_goal                     = None
 
         # buffers for “remaining to goal”
-        self.rem_t,    self.rem_dist     = deque(maxlen=1000), deque(maxlen=1000)
-        self.rem_t_th, self.rem_angle    = deque(maxlen=1000), deque(maxlen=1000)
+        self.rem_t,    self.rem_dist     = deque(maxlen=100), deque(maxlen=100)
+        self.rem_t_th, self.rem_angle    = deque(maxlen=100), deque(maxlen=100)
 
         # for pose‐based velocity
         self.prev_x = None
