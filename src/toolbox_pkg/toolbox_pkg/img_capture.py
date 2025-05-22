@@ -7,6 +7,7 @@ General-use node for multiple applications.
 Runs headless.
 To visualize the camera input images, use the VisualMonitor node.
 Originally designed to capture images for training a neural network.
+Use onboard camera for best results.
 
 aldrick-t
 MAY 2025
@@ -47,15 +48,19 @@ class ImgCapture(Node):
         # Image capture toggle
         self.declare_parameter('capture', False)
         # Image capture interval
-        self.declare_parameter('interval', 0.5)
+        self.declare_parameter('interval', 0.1)
         # Image capture count
         self.declare_parameter('count', 30)
         # Image capture directory
-        self.declare_parameter('directory', '/home/user/captured_images')
+        self.declare_parameter('directory', '/home/atad/captured_images')
         # Image capture format
         self.declare_parameter('format', 'jpg')
         # Logging level
         self.declare_parameter('log_severity', 'INFO')
+        # Image capture property descriptors
+        self.declare_parameter('img_author', 'emdial')
+        # Image capture property descriptors
+        self.declare_parameter('img_description', 'tl-red')
         
         # Parameter callback
         self.add_on_set_parameters_callback(self.parameter_callback)
@@ -67,27 +72,46 @@ class ImgCapture(Node):
         # No publishers needed for this node
         
         # Timer for image capture
-        self.timer = None
+        self.create_timer(self.interval, self.timer_cb)
+        # Image capture settings
+        self.capture = self.get_parameter('capture').value
+        self.interval = self.get_parameter('interval').value
+        self.count = self.get_parameter('count').value
+        self.directory = self.get_parameter('directory').value
+        self.format = self.get_parameter('format').value
+        self.img_author = self.get_parameter('img_author').value
+        self.img_description = self.get_parameter('img_description').value
         # Image capture variables
-        self.capture = False
-        self.interval = 1.0
-        self.count = 10
-        self.directory = '/home/user/captured_images'
-        self.format = 'jpg'
-        self.image_count = 0
-        self.image = None
+        self.img_count = 0
+        self.img = None
         
         # Running log message
         self.logger.info("ImgCapture Initialized!")
         
     def timer_cb(self):
-        pass
+        '''
+        Timer callback for image capture
+        '''
+        if self.capture and self.img is not None:
+            # Capture image
+            filename = f"{self.directory}/{self.img_description}_{self.img_count}_{self.img_author}.{self.format}"
+            cv2.imwrite(filename, self.img)
+            self.get_logger().info(f"Captured image: {filename}, count: {self.img_count}")
+            self.img_count += 1
+            
+            # Stop capturing after count is reached
+            if self.img_count >= self.count:
+                self.capture = False
+                self.get_logger().info("Image capture completed.")
+                self.img_count = 0
+        
         
     def camera_callback(self, msg):
-        self.image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        '''
+        Camera Callback fetches latest video frame
+        '''
+        self.img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         
-        if self.capture:
-            pass
         
     def parameter_callback(self, params):
         for param in params:
@@ -110,6 +134,16 @@ class ImgCapture(Node):
             elif param.name == 'format':
                 self.format = param.value
                 self.get_logger().info(f"Image capture format {param.value}")
+                
+            elif param.name == 'img_author':
+                self.img_author = param.value
+                self.get_logger().info(f"Image author {param.value}")
+                
+            elif param.name == 'img_description':
+                self.img_description = param.value
+                self.get_logger().info(f"Image description {param.value}")
+                
+            # Logging level
                 
             elif param.name == 'log_severity':
                 severity = LoggingSeverity[param.value.upper()]
