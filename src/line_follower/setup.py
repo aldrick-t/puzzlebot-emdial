@@ -5,7 +5,7 @@ package_name = 'line_follower'
 
 setup(
     name=package_name,
-    version='0.1.0',
+    version='0.2.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -18,8 +18,9 @@ setup(
     zip_safe=True,
     maintainer='atad',
     maintainer_email='taldrick@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='A package for line following robot, built for ROS2 on a MCR2 Puzzlebot.',
+    long_description='A package for line following robot, built for ROS2 on a MCR2 Puzzlebot. This package includes various nodes for camera preprocessing, line recognition, robot control, and traffic light recognition.',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
