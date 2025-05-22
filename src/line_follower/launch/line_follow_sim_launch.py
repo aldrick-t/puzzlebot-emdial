@@ -33,7 +33,7 @@ def generate_launch_description():
             executable='cam_preprocess',
             name='cam_preprocess',
             parameters=[{'use_sim_time': True,
-                         'camera_topic': 'camera',
+                         'camera_topic': 'camera'
                          }, config_cv]
         )
     
@@ -63,7 +63,13 @@ def generate_launch_description():
             package='line_follower',
             executable='robot_ctrl',
             name='robot_ctrl',
-            parameters=[{'use_sim_time': True}, config_ctrl]
+            parameters=[{'use_sim_time': True,
+                         'kp_w': 2.0,
+                         'ki_w': 1.2,
+                         'kd_w': 0.05,
+                         'v_limit': 0.5,
+                         'w_limit': 1.2,
+                         }, config_ctrl]
         )
     
     trafficlight_recogni = Node(

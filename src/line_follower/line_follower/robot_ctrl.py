@@ -331,8 +331,10 @@ class RobotCtrl(Node):
         
         for i in range(steps):
             self.cmd_vel.linear.x -= speed_dec
-            self.traffic_light_cb()
-            _, self.cmd_vel.angular.z = self.control_sys(self.line_cmd)
+            self.traffic_light_cb
+            temp, self.cmd_vel.angular.z = self.control_sys(self.line_cmd)
+            self.cmd_vel.angular.z = (-1 * (self.cmd_vel.angular.z))
+            self.cmd_vel.angular.z = np.clip(self.cmd_vel.angular.z, (-self.w_limit), self.w_limit)
             self.get_logger().info(f"Current Linear vel:   {self.cmd_vel.linear.x}", throttle_duration_sec=0.0)
             time.sleep(rate)  # Add sleep to control the rate of the loop
 
