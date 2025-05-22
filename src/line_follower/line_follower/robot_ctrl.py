@@ -58,15 +58,15 @@ class RobotCtrl(Node):
         self.declare_parameter('cmd_input_topic', 'line_cmd')
         # Controller gains parameters
         # PID for velocity control
-        self.declare_parameter('Kp_v', 0.5)
-        self.declare_parameter('Ki_v', 0.1)
-        self.declare_parameter('Kd_v', 0.01)
+        self.declare_parameter('Kp_v', 0.0)
+        self.declare_parameter('Ki_v', 0.0)
+        self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 1.4) #2.0
-        self.declare_parameter('Ki_w', 1.9) #1.2
-        self.declare_parameter('Kd_w', 0.09) #0.5
+        self.declare_parameter('Kp_w', 0.8) #2.0    #1.4
+        self.declare_parameter('Ki_w', 0.0) #1.2    #1.9
+        self.declare_parameter('Kd_w', 0.00) #0.5   #0.09
         # Max speed dynamic parameters
-        self.declare_parameter('v_limit', 0.5)
+        self.declare_parameter('v_limit', 0.3)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
         self.declare_parameter('v_limit_slow', 0.2)
@@ -74,9 +74,11 @@ class RobotCtrl(Node):
         # Absolute maximum safety speed limits
         self.declare_parameter('v_limit_max', 0.7)
         self.declare_parameter('w_limit_max', 1.8)
+        # Bend minimum speeds
+        self.declare_parameter('v_limit_min', 0.1)
+        self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
-
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
@@ -94,10 +96,13 @@ class RobotCtrl(Node):
         self.v_limit = self.get_parameter('v_limit').value
         self.v_limit_slow = self.get_parameter('v_limit_slow').value
         self.v_limit_max = self.get_parameter('v_limit_max').value
+        self.v_limit_min = self.get_parameter('v_limit_min').value
         
         self.w_limit = self.get_parameter('w_limit').value
         self.w_limit_slow = self.get_parameter('w_limit_slow').value
         self.w_limit_max = self.get_parameter('w_limit_max').value
+        self.w_limit_min = self.get_parameter('w_limit_min').value
+        
         # Init traffic light message var
         self.traffic_light = None
         # Init control activation var
@@ -168,7 +173,13 @@ class RobotCtrl(Node):
                 self.get_logger().info(f"v_limit_slow set to {param.value}")
             elif param.name == 'w_limit_slow':
                 self.v_limit_slow = param.value
-                self.get_logger().info(f"w_limit_slow set to {param.value}")       
+                self.get_logger().info(f"w_limit_slow set to {param.value}")    
+            elif param.name == 'v_limit_min':  
+                self.v_limit_min = param.value
+                self.get_logger().info(f"v_limit_min set to {param.value}")
+            elif param.name == 'w_limit_min':
+                self.w_limit_min = param.value
+                self.get_logger().info(f"w_limit_min set to {param.value}")
                 
         return SetParametersResult(successful=True)
     
@@ -178,7 +189,7 @@ class RobotCtrl(Node):
         '''
         self.line_cmd = msg.data
         self.line_cmd_received = True  # Set flag when message is received
-        self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=10.0)
+        self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=1.0)
         
     def traffic_light_cb(self, msg):
         '''
@@ -283,14 +294,13 @@ class RobotCtrl(Node):
         # Initialize vars
         # angular error is line_cmd as calculated from LineRecogni and LineCmd
         self.error_w = line_cmd
-        self.get_logger().debug(f"Receieved Line command: {line_cmd}", throttle_duration_sec=5.0)
+        # self.get_logger().debug(f"Receieved Line command: {line_cmd}", throttle_duration_sec=1.0)
         
         # Calculate velocity based on angular error
         # If angular error is extreme (near 1 or -1), reduce velocity
-        if abs(self.error_w) > 0.20:
+        if abs(self.error_w) > 0.40:
             #vel_x = self.v_limit * 0.6
             vel_x = self.v_limit * (1 - abs(self.error_w))  # Reduce velocity proportionally
-            # vel_x = self.output_limits_v[1] * (1 - abs(self.error_w))  # Reduce velocity proportionally
             self.get_logger().debug(f"Velocity reduced, Ang. Error over Safe Threshold", throttle_duration_sec=5.0)
         else:
             vel_x = self.v_limit  # Maintain maximum velocity in safe range
@@ -309,8 +319,10 @@ class RobotCtrl(Node):
         )
 
         # Clip velocities to their respective limits
-        vel_x = np.clip(vel_x, 0, self.v_limit)
+        vel_x = np.clip(vel_x, self.v_limit_min, self.v_limit)
         vel_w = np.clip(vel_w, (-self.w_limit), self.w_limit)
+        
+    
         
         return vel_x, vel_w
     
