@@ -287,8 +287,9 @@ class RobotCtrl(Node):
         
         # Calculate velocity based on angular error
         # If angular error is extreme (near 1 or -1), reduce velocity
-        if abs(self.error_w) > 0.60:
-            vel_x = self.v_limit * 0.6
+        if abs(self.error_w) > 0.20:
+            #vel_x = self.v_limit * 0.6
+            vel_x = self.v_limit * (1 - abs(self.error_w))  # Reduce velocity proportionally
             # vel_x = self.output_limits_v[1] * (1 - abs(self.error_w))  # Reduce velocity proportionally
             self.get_logger().debug(f"Velocity reduced, Ang. Error over Safe Threshold", throttle_duration_sec=5.0)
         else:
