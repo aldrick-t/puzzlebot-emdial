@@ -46,7 +46,7 @@
     camera_pos_y:='0.00'
     camera_pos_z:='0.045'
     camera_pos_r:='0.0'
-    camera_pos_p:='0.0'
+    camera_pos_p:='0.35'
     camera_pos_w:='0.0'
 
     tof_pos_x:='0.04'
