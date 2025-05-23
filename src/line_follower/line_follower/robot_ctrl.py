@@ -79,6 +79,8 @@ class RobotCtrl(Node):
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
+        # Curve detect threshhold
+        self.declare_parameter('curve_detect_thresh', 0.3)
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
@@ -102,6 +104,9 @@ class RobotCtrl(Node):
         self.w_limit_slow = self.get_parameter('w_limit_slow').value
         self.w_limit_max = self.get_parameter('w_limit_max').value
         self.w_limit_min = self.get_parameter('w_limit_min').value
+
+        # Curve detect threshhold
+        self.curve_detect_thresh = self.get_parameter('curve_detect_thresh').value
         
         # Init traffic light message var
         self.traffic_light = None
@@ -180,6 +185,9 @@ class RobotCtrl(Node):
             elif param.name == 'w_limit_min':
                 self.w_limit_min = param.value
                 self.get_logger().info(f"w_limit_min set to {param.value}")
+            elif param.name == 'curve_detect_thresh':
+                self.curve_detect_thresh = param.value
+                self.get_logger().info(f"curve_detect_thresh set to {param.value}")
                 
         return SetParametersResult(successful=True)
     
@@ -298,7 +306,7 @@ class RobotCtrl(Node):
         
         # Calculate velocity based on angular error
         # If angular error is extreme (near 1 or -1), reduce velocity
-        if abs(self.error_w) > 0.40:
+        if abs(self.error_w) > self.curve_detect_thresh:
             #vel_x = self.v_limit * 0.6
             vel_x = self.v_limit * (1 - abs(self.error_w))  # Reduce velocity proportionally
             self.get_logger().debug(f"Velocity reduced, Ang. Error over Safe Threshold", throttle_duration_sec=5.0)
