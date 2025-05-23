@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'cam_preprocess = toolbox_pkg.cam_preprocess:main',
+            'img_capture = toolbox_pkg.img_capture:main',
         ],
     },
 )
