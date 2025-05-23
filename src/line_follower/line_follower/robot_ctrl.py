@@ -62,11 +62,11 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_v', 0.0)
         self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 0.8) #2.0    #1.4
-        self.declare_parameter('Ki_w', 0.0) #1.2    #1.9
-        self.declare_parameter('Kd_w', 0.00) #0.5   #0.09
+        self.declare_parameter('Kp_w', 0.9) #2.0    #1.4
+        self.declare_parameter('Ki_w', 0.1) #1.2    #1.9
+        self.declare_parameter('Kd_w', 0.005) #0.5   #0.09
         # Max speed dynamic parameters
-        self.declare_parameter('v_limit', 0.3)
+        self.declare_parameter('v_limit', 0.5)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
         self.declare_parameter('v_limit_slow', 0.2)
