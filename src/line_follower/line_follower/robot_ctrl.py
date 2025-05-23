@@ -290,14 +290,14 @@ class RobotCtrl(Node):
         
         # Lost Line detection and recovery
         # Check if line is lost, indicated by a command >= abs(1)
-        # if line_cmd <= -1:
-        #     self.get_logger().debug("Lost line detected, spinning to search for the line")
-        #     # Spin in place: zero linear velocity and fixed turning speed.
-        #     return 0.0, 0.3  #
-        # elif line_cmd >= 1:
-        #     self.get_logger().debug("Lost line detected, spinning to search for the line")
-        #     # Spin in place: zero linear velocity and fixed turning speed.
-        #     return 0.0, -0.3
+        if line_cmd <= -1:
+             self.get_logger().debug("Lost line detected, spinning to search for the line")
+             # Spin in place: zero linear velocity and fixed turning speed.
+             return 0.0, 0.3  #
+        elif line_cmd >= 1:
+             self.get_logger().debug("Lost line detected, spinning to search for the line")
+             # Spin in place: zero linear velocity and fixed turning speed.
+             return 0.0, -0.3
         
         # Initialize vars
         # angular error is line_cmd as calculated from LineRecogni and LineCmd
@@ -308,7 +308,7 @@ class RobotCtrl(Node):
         # If angular error is extreme (near 1 or -1), reduce velocity
         if abs(self.error_w) > self.curve_detect_thresh:
             #vel_x = self.v_limit * 0.6
-            vel_x = self.v_limit * (1 - abs(self.error_w))  # Reduce velocity proportionally
+            vel_x = self.v_limit_min * (1 - abs(self.error_w))  # Reduce velocity proportionally
             self.get_logger().debug(f"Velocity reduced, Ang. Error over Safe Threshold", throttle_duration_sec=5.0)
         else:
             vel_x = self.v_limit  # Maintain maximum velocity in safe range
