@@ -32,6 +32,7 @@ setup(
             'odometry_node = line_follower.odometry_node:main',
             'trafficlight_recogni = line_follower.trafficlight_recogni:main',
             'trafficlight_recogni_legacy = line_follower.trafficlight_recogni_legacy:main',
+            'traffic_light_cnn = line_follower.traffic_light_cnn:main',
         ],
     },
 )

@@ -48,6 +48,6 @@ def generate_launch_description():
 
     
     return LaunchDescription([
-        visual_monitor,
+        #visual_monitor,
         traffic_light_cnn,
     ])
