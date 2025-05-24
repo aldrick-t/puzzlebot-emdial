@@ -107,6 +107,7 @@ class LineCmd(Node):
         # Process line command
         cmd_msg = self.process_line_cmd(process_img_data, line_recogni_data)
         # Publish command message
+        cmd_msg = float(cmd_msg)
         if cmd_msg > 1.1:
             cmd_msg -= int(cmd_msg)
             cmd_msg = 1.0 - cmd_msg
@@ -116,6 +117,7 @@ class LineCmd(Node):
             cmd_msg = -1.0 + cmd_msg
             cmd_msg *= -1.0
         self.get_logger().debug("SEXOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO", throttle_duration_sec=1.0)
+        cmd_msg = Float32()
         self.line_cmd_pub.publish(cmd_msg)
         
         
