@@ -314,7 +314,8 @@ class RobotCtrl(Node):
         
         # Initialize vars
         # angular error is line_cmd as calculated from LineRecogni and LineCmd
-        self.error_w = line_cmd
+        if not down_l or down_r:
+            self.error_w = line_cmd
         # self.get_logger().debug(f"Receieved Line command: {line_cmd}", throttle_duration_sec=1.0)
         
         # Calculate velocity based on angular error
