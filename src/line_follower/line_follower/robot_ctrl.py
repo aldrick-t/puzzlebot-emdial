@@ -303,11 +303,11 @@ class RobotCtrl(Node):
         
         # Lost Line detection and recovery
         # Check if line is lost, indicated by a command >= abs(1)
-        if line_cmd <= -1 or down_r :
+        if line_cmd <= -1 or down_l :
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, 0.3  #
-        elif line_cmd >= 1 or down_l:
+        elif line_cmd >= 1 or down_r:
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, -0.3
