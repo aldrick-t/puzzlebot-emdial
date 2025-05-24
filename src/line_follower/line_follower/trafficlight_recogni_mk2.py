@@ -29,60 +29,50 @@ class TLightRecogniMK2(Node):
         # Set logging level default to DEBUG for all nodes
         self.get_logger().set_level(LoggingSeverity.DEBUG)
         rclpy.logging.get_logger('rclpy').set_level(LoggingSeverity.DEBUG)
-        
-        # Start logger
         self.logger = self.get_logger()
-        
-        # Init message
         self.logger.info("TLRecogni MK2 Starting Initialization...")
         
         # Dynamic parameters
         self.declare_parameter('camera_topic', 'video_source/raw')
         self.declare_parameter('log_severity', 'INFO')
-        
         self.declare_parameter('min_area', 100)
         self.declare_parameter('max_area', 10000)
-        
         self.declare_parameter('min_radius', 10)
         self.declare_parameter('max_radius', 100)
-        
         self.declare_parameter('min_circularity', 0.5)
         self.declare_parameter('min_convexity', 0.5)
         self.declare_parameter('min_inertia_ratio', 0.5)
-        
         self.declare_parameter('color_threshold', 50)
-        
-        # HSV params (initial placeholders, will be overridden by trackbars)
+        # HSV placeholders (unused when using trackbars)
         self.declare_parameter('hsv_lower',  [0,  30,  30])
-        self.declare_parameter('hsv_upper', [179, 255, 255])
+        self.declare_parameter('hsv_upper', [179,255,255])
+        # LAB reference placeholders
+        self.declare_parameter('ref_color_lab_red',    [50,150,150])
+        self.declare_parameter('ref_color_lab_yellow', [80,115,160])
+        self.declare_parameter('ref_color_lab_green',  [70,120,110])
         
-        # LAB reference colors
-        self.declare_parameter('ref_color_lab_red',    [50, 150, 150])
-        self.declare_parameter('ref_color_lab_yellow', [80, 115, 160])
-        self.declare_parameter('ref_color_lab_green',  [70, 120, 110])
-        
-        # Parameter callback
         self.add_on_set_parameters_callback(self.parameter_callback)
         
-        # Load static parameters into members
-        self.min_area = self.get_parameter('min_area').value
-        self.min_radius = self.get_parameter('min_radius').value
-        self.min_circularity = self.get_parameter('min_circularity').value
-        self.max_area = self.get_parameter('max_area').value
-        self.max_radius = self.get_parameter('max_radius').value
+        # Static parameter loads
+        self.min_area       = self.get_parameter('min_area').value
+        self.min_circularity= self.get_parameter('min_circularity').value
         
-        self.hsv_low  = np.array(self.get_parameter('hsv_lower').value)
-        self.hsv_high = np.array(self.get_parameter('hsv_upper').value)
-        
+        # Initial HSV bounds (for reference)
+        self.hsv_low, self.hsv_high = (
+            np.array(self.get_parameter('hsv_lower').value),
+            np.array(self.get_parameter('hsv_upper').value)
+        )
+        # Initial LAB refs
         self.ref_colors_lab = {
             'red':    self.get_parameter('ref_color_lab_red').value,
             'yellow': self.get_parameter('ref_color_lab_yellow').value,
             'green':  self.get_parameter('ref_color_lab_green').value,
         }
         
-        # Create tuning windows for live HSV calibration
+        # Create tuners for HSV and LAB
         self._make_color_tuners()
-        # Timer to pump OpenCV GUI loop at ~30Hz
+        self._make_lab_tuners()
+        # Timer to spin OpenCV GUI
         self.create_timer(1/30.0, self._spin_gui)
         
         # Subscriptions
@@ -90,22 +80,24 @@ class TLightRecogniMK2(Node):
             Image,
             self.get_parameter('camera_topic').value,
             self.camera_callback,
-            10)
+            10
+        )
         
         # Publishers
         self.tlight_status_pub  = self.create_publisher(String, 'traffic_light_color', 10)
-        self.tlight_overlay_pub = self.create_publisher(Image,  'tlight_overlay',   10)
-        self.hsvmask_pub        = self.create_publisher(Image,  'hsv_mask',         10)
-        self.contour_pub        = self.create_publisher(Image,  'contour_overlay',  10)
+        self.tlight_overlay_pub = self.create_publisher(Image,  'tlight_overlay',     10)
+        self.hsvmask_pub        = self.create_publisher(Image,  'hsv_mask',           10)
+        self.contour_pub        = self.create_publisher(Image,  'contour_overlay',    10)
         
         self.logger.info("TLRecogni MK2 Initialization Complete")
 
     def _make_color_tuners(self):
-        """Create OpenCV windows and trackbars for Red, Yellow, Green HSV tuning."""
+        """Create HSV trackbar windows for Red1, Red2, Yellow, and Green."""
         def nothing(x): pass
-        for color in ('Red','Yellow','Green'):
+        for color in ('Red1','Red2','Yellow','Green'):
             win = f"{color} Tuner"
             cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+            # H, S, V ranges
             cv2.createTrackbar('Hmin', win, 0,   179, nothing)
             cv2.createTrackbar('Hmax', win, 179, 179, nothing)
             cv2.createTrackbar('Smin', win, 0,   255, nothing)
@@ -114,7 +106,7 @@ class TLightRecogniMK2(Node):
             cv2.createTrackbar('Vmax', win, 255, 255, nothing)
 
     def _read_color_tuner(self, color):
-        """Read trackbar positions for a given color tuner window."""
+        """Read HSV bounds from a given color tuner window."""
         win = f"{color} Tuner"
         h1 = cv2.getTrackbarPos('Hmin', win)
         s1 = cv2.getTrackbarPos('Smin', win)
@@ -124,72 +116,92 @@ class TLightRecogniMK2(Node):
         v2 = cv2.getTrackbarPos('Vmax', win)
         return np.array([h1,s1,v1]), np.array([h2,s2,v2])
 
+    def _make_lab_tuners(self):
+        """Create LAB reference trackbars for Red, Yellow, and Green."""
+        def nothing(x): pass
+        for color in ('Red','Yellow','Green'):
+            key = color.lower()
+            init = self.ref_colors_lab[key]
+            win = f"{color} Lab Tuner"
+            cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+            cv2.createTrackbar('L', win, init[0], 255, nothing)
+            cv2.createTrackbar('a', win, init[1], 255, nothing)
+            cv2.createTrackbar('b', win, init[2], 255, nothing)
+
+    def _read_lab_tuner(self, color):
+        """Read LAB reference values from a given lab tuner window."""
+        win = f"{color} Lab Tuner"
+        l = cv2.getTrackbarPos('L', win)
+        a = cv2.getTrackbarPos('a', win)
+        b = cv2.getTrackbarPos('b', win)
+        return [l,a,b]
+
     def _spin_gui(self):
         """Pump the OpenCV GUI event loop."""
         cv2.waitKey(1)
 
     def camera_callback(self, msg: Image):
-        # Convert ROS Image to OpenCV BGR
+        # ROS→OpenCV
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-
-        # Preprocess: blur + CLAHE in LAB
+        # Preprocess (blur + CLAHE)
         proc_image = self.preprocess(cv_image)
-        # HSV conversion
+        # to HSV
         self.hsv_image = cv2.cvtColor(proc_image, cv2.COLOR_BGR2HSV)
 
-        # Live-read and apply trackbar-tuned HSV ranges
-        self.lower_red, self.upper_red       = self._read_color_tuner('Red')
+        # Read HSV tuners
+        self.lower_red1,   self.upper_red1   = self._read_color_tuner('Red1')
+        self.lower_red2,   self.upper_red2   = self._read_color_tuner('Red2')
         self.lower_yellow, self.upper_yellow = self._read_color_tuner('Yellow')
-        self.lower_green, self.upper_green   = self._read_color_tuner('Green')
+        self.lower_green,  self.upper_green  = self._read_color_tuner('Green')
 
-        # Generate and show individual masks
-        red_mask    = cv2.inRange(self.hsv_image, self.lower_red,   self.upper_red)
-        yellow_mask = cv2.inRange(self.hsv_image, self.lower_yellow,self.upper_yellow)
-        green_mask  = cv2.inRange(self.hsv_image, self.lower_green, self.upper_green)
-        cv2.imshow('Red Tuner',    red_mask)
-        cv2.imshow('Yellow Tuner', yellow_mask)
-        cv2.imshow('Green Tuner',  green_mask)
+        # Build and show individual masks
+        red_mask1    = cv2.inRange(self.hsv_image, self.lower_red1,   self.upper_red1)
+        red_mask2    = cv2.inRange(self.hsv_image, self.lower_red2,   self.upper_red2)
+        red_mask     = cv2.bitwise_or(red_mask1, red_mask2)
+        yellow_mask  = cv2.inRange(self.hsv_image, self.lower_yellow, self.upper_yellow)
+        green_mask   = cv2.inRange(self.hsv_image, self.lower_green,  self.upper_green)
+        cv2.imshow('Red1 Tuner',    red_mask1)
+        cv2.imshow('Red2 Tuner',    red_mask2)
+        cv2.imshow('Yellow Tuner',  yellow_mask)
+        cv2.imshow('Green Tuner',   green_mask)
 
-        # Combine into one mask, then clean
+        # Combine, clean
         mask = cv2.bitwise_or(red_mask, yellow_mask)
         mask = cv2.bitwise_or(mask, green_mask)
         mask = self.clean_mask(mask)
 
-        # Find circles + contour overlay
-        circles, contour_overlay = self.find_color_circles(
-            mask, self.min_area, self.max_area, self.min_circularity)
+        # Read LAB tuners into ref_colors_lab
+        for color in ('Red','Yellow','Green'):
+            self.ref_colors_lab[color.lower()] = self._read_lab_tuner(color)
 
-        # Classify and annotate
+        # Detect circles + overlay
+        circles, contour_overlay = self.find_color_circles(mask, self.min_area, self.min_circularity)
+
+        # Classify + annotate
         labels = []
         for (x,y), r, area, circ in circles:
             label = self.classify_circle_lab(cv_image, (x,y), r, self.ref_colors_lab)
             labels.append(label)
-            cv2.circle(cv_image, (x,y), r, (0,255,0), 1)
+            cv2.circle(cv_image, (x,y), r, (0,255,0), 2)
             cv2.putText(cv_image, label, (x-10,y-10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 1)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
 
-        # Publish detected color string
+        # Publish color(s)
         color_msg = String()
         color_msg.data = ','.join(labels) if labels else 'none'
         self.tlight_status_pub.publish(color_msg)
 
-        # Publish annotated overlay image
+        # Publish overlays
         overlay_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
         overlay_msg.header = msg.header
         self.tlight_overlay_pub.publish(overlay_msg)
 
-        # Publish mask and contour overlay as mono8
         mask_msg    = self.bridge.cv2_to_imgmsg(mask,           encoding='mono8')
         contour_msg = self.bridge.cv2_to_imgmsg(contour_overlay, encoding='mono8')
         mask_msg.header    = msg.header
         contour_msg.header = msg.header
         self.hsvmask_pub.publish(mask_msg)
         self.contour_pub.publish(contour_msg)
-
-    # ... existing tl_detect_sys left unchanged ...
-    def tl_detect_sys(self, image):
-        # Unused helper from earlier versions
-        return
 
     def preprocess(self, img):
         """Blur → LAB → CLAHE on L → back to BGR"""
@@ -207,19 +219,19 @@ class TLightRecogniMK2(Node):
         m = cv2.morphologyEx(m,    cv2.MORPH_CLOSE, kernel, iterations=1)
         return m
 
-    def find_color_circles(self, mask, min_area, max_area, min_circ):
+    def find_color_circles(self, mask, min_area, min_circ):
         out = []
         cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for c in cnts:
             area = cv2.contourArea(c)
-            if area < min_area or area > max_area:
+            if area < min_area:
                 continue
             peri = cv2.arcLength(c, True)
-            circ = 4*np.pi*area/(peri*peri) if peri > 0 else 0
+            circ = 4*np.pi*area/(peri*peri) if peri>0 else 0
             if circ < min_circ:
                 continue
-            (x, y), r = cv2.minEnclosingCircle(c)
-            out.append(((int(x), int(y)), int(r), area, circ))
+            (x,y), r = cv2.minEnclosingCircle(c)
+            out.append(((int(x),int(y)), int(r), area, circ))
             cv2.putText(mask, f"{int(area)}", (int(x)-10, int(y)-10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
         return out, mask
@@ -242,8 +254,7 @@ class TLightRecogniMK2(Node):
             if param.name == 'log_severity':
                 lvl = param.value
                 if lvl in ('DEBUG','INFO','WARN','ERROR'):
-                    sev = getattr(LoggingSeverity, lvl)
-                    self.get_logger().set_level(sev)
+                    self.get_logger().set_level(getattr(LoggingSeverity, lvl))
                 else:
                     self.get_logger().error('Invalid log severity level')
             elif param.name == 'camera_topic':
@@ -264,7 +275,8 @@ class TLightRecogniMK2(Node):
                 self.max_radius = param.value
                 self.get_logger().info(f"Max radius changed to {self.max_radius}")
             
-            
+        
+        
         return SetParametersResult(successful=True)
 
     def wait_for_ros_time(self):
