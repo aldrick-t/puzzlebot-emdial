@@ -107,7 +107,7 @@ class LineCmd(Node):
         # Process line command
         cmd_msg = self.process_line_cmd(process_img_data, line_recogni_data)
         # Publish command message
-        cmd_msg = float(cmd_msg)
+        cmd_msg = cmd_msg.data
         if cmd_msg > 1.1:
             cmd_msg -= int(cmd_msg)
             cmd_msg = 1.0 - cmd_msg
