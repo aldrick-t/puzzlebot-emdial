@@ -37,16 +37,17 @@ def generate_launch_description():
                          'camera_topic': 'video_source/raw',}]
         )
     
-    trafficlight_recogni = Node(
+    traffic_light_cnn = Node(
             package='line_follower',
-            executable='trafficlight_recogni_legacy',
-            name='trafficlight_recogni_legacy',
+            executable='traffic_light_cnn',
+            name='traffic_light_cnn',
             parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',
-                         }, config_cv]
+                         'camera_topic': 'video_source/raw',}]
         )
+    
+
     
     return LaunchDescription([
         visual_monitor,
-        trafficlight_recogni,
+        traffic_light_cnn,
     ])

@@ -121,7 +121,8 @@ class RobotCtrl(Node):
         # line command sub
         self.create_subscription(Float32, self.get_parameter('cmd_input_topic').value, self.line_cmd_cb, 10)
         # Traffic light data sub
-        self.create_subscription(String, 'traffic_light_color', self.traffic_light_cb, 10)
+        #self.create_subscription(String, 'traffic_light_color', self.traffic_light_cb, 10)
+        self.create_subscription(String, 'traffic_light_state', self.traffic_light_cb, 10)
         
         # Publishers
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
@@ -207,19 +208,18 @@ class RobotCtrl(Node):
         self.get_logger().debug(f"RECEIVED Traffic light data: {self.traffic_light}", throttle_duration_sec=10.0)
         
         #Traffic light state flags
-        if self.traffic_light == 'RED':
+        if self.traffic_light == 'red':
             self.tl_red = True
             self.tl_yellow = False
             self.tl_green = False
-        elif self.traffic_light == 'YELLOW':
+        elif self.traffic_light == 'yellow':
             self.tl_red = False
             self.tl_yellow = True
             self.tl_green = False
-        elif self.traffic_light == 'GREEN':
+        elif self.traffic_light == 'green' or self.traffic_light == 'off':
             self.tl_red = False
             self.tl_yellow = False
             self.tl_green = True
-            self.get_logger().debug("Invalid traffic light data received, defaulting to GREEN.", throttle_duration_sec=5.0)
         
 
     
