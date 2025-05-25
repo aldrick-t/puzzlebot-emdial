@@ -39,32 +39,32 @@ class TLightRecogniMK2(Node):
         self.declare_parameter('h_r2_min', 154)
         self.declare_parameter('h_r2_max', 179)
         
-        self.declare_parameter('h_y_min', 21)
-        self.declare_parameter('h_y_max', 69)
+        self.declare_parameter('h_y_min', 14)
+        self.declare_parameter('h_y_max', 66)
         
-        self.declare_parameter('h_g_min', 70)
-        self.declare_parameter('h_g_max', 151)
+        self.declare_parameter('h_g_min', 52)
+        self.declare_parameter('h_g_max', 97)
         
         self.declare_parameter('s_r1_min', 25)
         self.declare_parameter('s_r1_max', 66)
         self.declare_parameter('s_r2_min', 25)
         self.declare_parameter('s_r2_max', 66)
         
-        self.declare_parameter('s_y_min', 19)
-        self.declare_parameter('s_y_max', 119)
+        self.declare_parameter('s_y_min', 17)
+        self.declare_parameter('s_y_max', 116)
         
-        self.declare_parameter('s_g_min', 30)
-        self.declare_parameter('s_g_max', 113)
+        self.declare_parameter('s_g_min', 40)
+        self.declare_parameter('s_g_max', 81)
         
         self.declare_parameter('v_r1_min', 175)
         self.declare_parameter('v_r1_max', 255)
         self.declare_parameter('v_r2_min', 175)
         self.declare_parameter('v_r2_max', 255)
         
-        self.declare_parameter('v_y_min', 168)
+        self.declare_parameter('v_y_min', 161)
         self.declare_parameter('v_y_max', 255)
         
-        self.declare_parameter('v_g_min', 203)
+        self.declare_parameter('v_g_min', 168)
         self.declare_parameter('v_g_max', 255)
         
         # Dynamic parameters
@@ -74,9 +74,9 @@ class TLightRecogniMK2(Node):
         self.declare_parameter('max_area', 28)
         self.declare_parameter('min_circularity', 0.5)
         # LAB reference placeholders
-        self.declare_parameter('ref_color_lab_red',    [50,150,150])
-        self.declare_parameter('ref_color_lab_yellow', [80,115,160])
-        self.declare_parameter('ref_color_lab_green',  [70,120,110])
+        # self.declare_parameter('ref_color_lab_red',    [50,150,150])
+        # self.declare_parameter('ref_color_lab_yellow', [80,115,160])
+        # self.declare_parameter('ref_color_lab_green',  [70,120,110])
         # Probability threshold for detection (0.0 - 1.0)
         self.declare_parameter('prob_thresh', 0.5)
         
@@ -114,16 +114,17 @@ class TLightRecogniMK2(Node):
                                         self.get_parameter('s_g_max').value,
                                         self.get_parameter('v_g_max').value])
         
-        # Initial LAB refs
-        self.ref_colors_lab = {
-            'red':    self.get_parameter('ref_color_lab_red').value,
-            'yellow': self.get_parameter('ref_color_lab_yellow').value,
-            'green':  self.get_parameter('ref_color_lab_green').value,
-        }
+        # # Initial LAB refs
+        # self.ref_colors_lab = {
+        #     'red':    self.get_parameter('ref_color_lab_red').value,
+        #     'yellow': self.get_parameter('ref_color_lab_yellow').value,
+        #     'green':  self.get_parameter('ref_color_lab_green').value,
+        # }
+
         
         # Create tuners for HSV and LAB
         self._make_color_tuners()
-        self._make_lab_tuners()
+        #self._make_lab_tuners()
         # Timer to spin OpenCV GUI
         self.create_timer(1/30.0, self._spin_gui)
         
@@ -168,24 +169,24 @@ class TLightRecogniMK2(Node):
         v2 = cv2.getTrackbarPos('Vmax', win)
         return np.array([h1,s1,v1]), np.array([h2,s2,v2])
 
-    def _make_lab_tuners(self):
-        """Create LAB reference trackbars for Red, Yellow, and Green."""
-        def nothing(x): pass
-        for color in ('Red','Yellow','Green'):
-            win = f"{color} Lab Tuner"
-            init = self.ref_colors_lab[color.lower()]
-            cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-            cv2.createTrackbar('L', win, init[0], 255, nothing)
-            cv2.createTrackbar('a', win, init[1], 255, nothing)
-            cv2.createTrackbar('b', win, init[2], 255, nothing)
+    # def _make_lab_tuners(self):
+    #     """Create LAB reference trackbars for Red, Yellow, and Green."""
+    #     def nothing(x): pass
+    #     for color in ('Red','Yellow','Green'):
+    #         win = f"{color} Lab Tuner"
+    #         init = self.ref_colors_lab[color.lower()]
+    #         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+    #         cv2.createTrackbar('L', win, init[0], 255, nothing)
+    #         cv2.createTrackbar('a', win, init[1], 255, nothing)
+    #         cv2.createTrackbar('b', win, init[2], 255, nothing)
 
-    def _read_lab_tuner(self, color):
-        """Read LAB reference values from a given lab tuner window."""
-        win = f"{color} Lab Tuner"
-        l = cv2.getTrackbarPos('L', win)
-        a = cv2.getTrackbarPos('a', win)
-        b = cv2.getTrackbarPos('b', win)
-        return [l,a,b]
+    # def _read_lab_tuner(self, color):
+    #     """Read LAB reference values from a given lab tuner window."""
+    #     win = f"{color} Lab Tuner"
+    #     l = cv2.getTrackbarPos('L', win)
+    #     a = cv2.getTrackbarPos('a', win)
+    #     b = cv2.getTrackbarPos('b', win)
+    #     return [l,a,b]
 
     def _spin_gui(self):
         """Pump the OpenCV GUI event loop."""
@@ -227,9 +228,9 @@ class TLightRecogniMK2(Node):
         mask = cv2.bitwise_or(mask, green_mask)
         mask = self.clean_mask(mask)
 
-        # Update LAB references
-        for color in ('Red','Yellow','Green'):
-            self.ref_colors_lab[color.lower()] = self._read_lab_tuner(color)
+        # # Update LAB references
+        # for color in ('Red','Yellow','Green'):
+        #     self.ref_colors_lab[color.lower()] = self._read_lab_tuner(color)
 
         # Detect circles and get overlay of contours
         circles, contour_overlay = self.find_color_circles(mask, self.min_area, self.min_circularity)
@@ -246,7 +247,10 @@ class TLightRecogniMK2(Node):
                         (int(x+5), int(y-5)), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (255,255,0), 1)
             # classify color
-            label = self.classify_circle_lab(cv_image, (int(x),int(y)), r, self.ref_colors_lab)
+            #label = self.classify_circle_lab(cv_image, (int(x),int(y)), r, self.ref_colors_lab)
+            label = self.classify_circle_hsv(cv_image, (int(x),int(y)), r,
+                                             red_mask1, red_mask2,
+                                             yellow_mask, green_mask)
             labels.append(label)
             # draw detected circle
             cv2.circle(cv_image, (int(x),int(y)), int(r), (0,255,0), 2)
@@ -305,17 +309,31 @@ class TLightRecogniMK2(Node):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
         return out, mask
 
-    def classify_circle_lab(self, bgr_img, center, radius, ref_colors_lab):
+    # def classify_circle_lab(self, bgr_img, center, radius, ref_colors_lab):
+    #     mask = np.zeros(bgr_img.shape[:2], dtype=np.uint8)
+    #     cv2.circle(mask, center, int(radius), 255, -1)
+    #     lab = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2LAB)
+    #     meanL, meana, meanb, _ = cv2.mean(lab, mask=mask)
+    #     best_label, best_dist = None, float('inf')
+    #     for label, rgb in ref_colors_lab.items():
+    #         rL, ra, rb = rgb
+    #         d = (meanL-rL)**2 + (meana-ra)**2 + (meanb-rb)**2
+    #         if d < best_dist:
+    #             best_dist, best_label = d, label
+    #     return best_label
+    def classify_circle_hsv(self, bgr_img, center, radius, redmask1, redmask2, yellowmask, greenmask):
         mask = np.zeros(bgr_img.shape[:2], dtype=np.uint8)
         cv2.circle(mask, center, int(radius), 255, -1)
-        lab = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2LAB)
-        meanL, meana, meanb, _ = cv2.mean(lab, mask=mask)
-        best_label, best_dist = None, float('inf')
-        for label, rgb in ref_colors_lab.items():
-            rL, ra, rb = rgb
-            d = (meanL-rL)**2 + (meana-ra)**2 + (meanb-rb)**2
-            if d < best_dist:
-                best_dist, best_label = d, label
+        hsv = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2HSV)
+        best_label = 'none'
+        if redmask1[int(center[1]), int(center[0])] > 0:
+            best_label = 'red'
+        elif redmask2[int(center[1]), int(center[0])] > 0:
+            best_label = 'red'
+        elif yellowmask[int(center[1]), int(center[0])] > 0:
+            best_label = 'yellow'
+        elif greenmask[int(center[1]), int(center[0])] > 0:
+            best_label = 'green'
         return best_label
 
     def parameter_callback(self, params):
