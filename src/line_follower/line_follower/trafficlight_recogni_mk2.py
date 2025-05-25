@@ -35,7 +35,7 @@ class TLightRecogniMK2(Node):
         # Static Init default params from config
         # HSV bounds 
         self.declare_parameter('h_r1_min', 0)
-        self.declare_parameter('h_r1_max', 30)
+        self.declare_parameter('h_r1_max', 20)
         self.declare_parameter('h_r2_min', 154)
         self.declare_parameter('h_r2_max', 179)
         
@@ -307,7 +307,7 @@ class TLightRecogniMK2(Node):
 
     def classify_circle_lab(self, bgr_img, center, radius, ref_colors_lab):
         mask = np.zeros(bgr_img.shape[:2], dtype=np.uint8)
-        cv2.circle(mask, center, radius, 255, -1)
+        cv2.circle(mask, center, int(radius), 255, -1)
         lab = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2LAB)
         meanL, meana, meanb, _ = cv2.mean(lab, mask=mask)
         best_label, best_dist = None, float('inf')
