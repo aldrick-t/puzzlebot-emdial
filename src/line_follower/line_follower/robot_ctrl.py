@@ -115,8 +115,8 @@ class RobotCtrl(Node):
         # Traffic light state flags
         self.tl_red = False
         self.tl_yellow = False
-        self.tl_green = True
-        self.first = True
+        self.tl_green = False
+        self.start = False
         
         # Subscriptions
         # line command sub
@@ -202,29 +202,41 @@ class RobotCtrl(Node):
         self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=1.0)
         
     def traffic_light_cb(self, msg):
-        '''
-        Callback function for traffic light data
-        '''
-        self.traffic_light = msg.data
-        self.get_logger().debug(f"RECEIVED Traffic light data: {self.traffic_light}", throttle_duration_sec=10.0)
+        """
+        Callback function for traffic light data.
+        Accepts msg.data as either:
+        - a single color string, e.g. "red"
+        - a comma-separated list, e.g. "red, green, yellow"
+        """
+        raw = msg.data or ""
+        # parse into a list of color tokens
+        colors = [c.strip().lower() for c in raw.split(',') if c.strip()]
+        self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=10.0)
         
-        #Traffic light state flags
-        if self.traffic_light == 'RED':
-            self.tl_red = True
-            self.tl_yellow = False
-            self.tl_green = False
-        elif self.traffic_light == 'YELLOW':
-            self.tl_red = False
-            self.tl_yellow = True
-            self.tl_green = False
-        elif self.traffic_light == 'GREEN':
-            self.tl_red = False
-            self.tl_yellow = False
-            self.tl_green = True
-            self.get_logger().debug("Invalid traffic light data received, defaulting to GREEN.", throttle_duration_sec=5.0)
-        
+        # reset all flags
+        self.tl_red = False
+        self.tl_yellow = False
+        self.tl_green = False
 
-    
+        # set flags based on which colors are present
+        if 'red' in colors:
+            self.tl_red = True
+        if 'yellow' in colors:
+            self.tl_yellow = True
+        if 'green' in colors:
+            self.tl_green = True
+            self.start = True
+        if 'none' in colors:
+            self.tl_green = True
+            self.start = True
+            
+        if not any((self.tl_red, self.tl_yellow, self.tl_green)):
+            self.tl_green = True
+            self.start = True
+            self.get_logger().debug("Invalid traffic light data received, defaulting to GREEN.", throttle_duration_sec=5.0)
+            
+        self.traffic_light = colors
+        
     def timer_callback(self):
         '''
         Timer callback function
@@ -261,8 +273,14 @@ class RobotCtrl(Node):
             return
         elif self.tl_yellow:
             self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
-            # Reduce speed to slow output limits
-            v = np.clip(v, 0, (self.v_limit_slow))
+            
+            # Conditional to start only on green
+            if self.start:
+                # Reduce speed to slow output limits
+                v = np.clip(v, 0, (self.v_limit_slow))
+            elif self.start is not True:
+                v = 0.00
+                
             w = np.clip(w, (-self.w_limit_slow), (self.w_limit_slow))
             
         elif self.tl_green:
@@ -355,7 +373,7 @@ class RobotCtrl(Node):
         self.integral_w = 0.0
         self.last_time = None
         
-    def soft_stop(self, ramp_time=2.0, rate=0.01):
+    def soft_stop(self, ramp_time=0.5, rate=0.005):
         '''
         Soft stop function
         Gradually reduces velocity to zero
