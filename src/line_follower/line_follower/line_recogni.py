@@ -225,7 +225,7 @@ class LineRecogni(Node):
         if moments["m00"] != 0:
             cx = int(moments["m10"] / moments["m00"])
             cy = int(moments["m01"] / moments["m00"])
-            self.get_logger().debug(f"Centroid: ({cx}, {cy})", throttle_duration_sec=1.0)
+            self.get_logger().debug(f"Centroid: ({cx}, {cy})", throttle_duration_sec=10.0)
         else:
             self.get_logger().debug("No contour found", throttle_duration_sec=5.0)
             
