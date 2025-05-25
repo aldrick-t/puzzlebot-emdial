@@ -117,7 +117,7 @@ class RobotCtrl(Node):
         self.tl_yellow = False
         self.tl_green = False
         self.start = False
-        
+        self.first = True
         # Subscriptions
         # line command sub
         self.create_subscription(Float32, self.get_parameter('cmd_input_topic').value, self.line_cmd_cb, 10)
@@ -211,29 +211,34 @@ class RobotCtrl(Node):
         raw = msg.data or ""
         # parse into a list of color tokens
         colors = [c.strip().lower() for c in raw.split(',') if c.strip()]
-        self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=10.0)
-        
-        # reset all flags
-        self.tl_red = False
-        self.tl_yellow = False
-        self.tl_green = False
+        self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=1.0)        
 
         # set flags based on which colors are present
         if 'red' in colors:
             self.tl_red = True
-        if 'yellow' in colors:
+            self.tl_yellow = False
+            self.tl_green = False
+        elif 'yellow' in colors:
             self.tl_yellow = True
-        if 'green' in colors:
+            self.tl_red = False
+            self.tl_green = False
+        elif 'green' in colors:
             self.tl_green = True
             self.start = True
+            self.tl_red = False
+            self.tl_yellow = False
+        color_str=['red','yellow','green']
+        color = [self.tl_red,self.tl_yellow,self.tl_green]
+        last_color = lambda x: color_str[x.index(True)] if True in x else 'Default'
+
         if 'none' in colors:
-            self.tl_green = True
-            self.start = True
+            self.get_logger().debug(f"None {last_color(color)}", throttle_duration_sec=1.0)
             
-        if not any((self.tl_red, self.tl_yellow, self.tl_green)):
-            self.tl_green = True
-            self.start = True
-            self.get_logger().debug("Invalid traffic light data received, defaulting to GREEN.", throttle_duration_sec=5.0)
+            
+        # if not any((self.tl_red, self.tl_yellow, self.tl_green)):
+        #     self.tl_green = True
+        #     self.start = True
+        #     self.get_logger().debug("Invalid traffic light data received, defaulting to GREEN.", throttle_duration_sec=5.0)
             
         self.traffic_light = colors
         
@@ -242,6 +247,13 @@ class RobotCtrl(Node):
         Timer callback function
         Publishes calculated control command to cmd_vel topic
         '''
+        if not self.ctrl_activate and not self.tl_green:
+            # self.reset()
+            self.cmd_vel.linear.x = 0.0
+            self.cmd_vel.angular.z = 0.0
+            self.cmd_vel_pub.publish(self.cmd_vel)
+            return
+        
         if not self.ctrl_activate:
             # self.reset()
             self.cmd_vel.linear.x = 0.0

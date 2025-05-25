@@ -123,7 +123,7 @@ class TLightRecogniMK2(Node):
 
         
         # Create tuners for HSV and LAB
-        self._make_color_tuners()
+        #self._make_color_tuners()
         #self._make_lab_tuners()
         # Timer to spin OpenCV GUI
         self.create_timer(1/30.0, self._spin_gui)
@@ -209,19 +209,19 @@ class TLightRecogniMK2(Node):
         cv2.line(cv_image, (right_x,0),(right_x,h), (255,0,0), 2)
 
         # Read and apply HSV tuners
-        self.lower_red1,   self.upper_red1   = self._read_color_tuner('Red1')
-        self.lower_red2,   self.upper_red2   = self._read_color_tuner('Red2')
-        self.lower_yellow, self.upper_yellow = self._read_color_tuner('Yellow')
-        self.lower_green,  self.upper_green  = self._read_color_tuner('Green')
+        #self.lower_red1,   self.upper_red1   = self._read_color_tuner('Red1')
+        #self.lower_red2,   self.upper_red2   = self._read_color_tuner('Red2')
+        #self.lower_yellow, self.upper_yellow = self._read_color_tuner('Yellow')
+        #self.lower_green,  self.upper_green  = self._read_color_tuner('Green')
 
         red_mask1   = cv2.inRange(self.hsv_image, self.lower_red1,   self.upper_red1)
         red_mask2   = cv2.inRange(self.hsv_image, self.lower_red2,   self.upper_red2)
         yellow_mask = cv2.inRange(self.hsv_image, self.lower_yellow, self.upper_yellow)
         green_mask  = cv2.inRange(self.hsv_image, self.lower_green,  self.upper_green)
-        cv2.imshow('Red1 Tuner',   red_mask1)
-        cv2.imshow('Red2 Tuner',   red_mask2)
-        cv2.imshow('Yellow Tuner', yellow_mask)
-        cv2.imshow('Green Tuner',  green_mask)
+        # cv2.imshow('Red1 Tuner',   red_mask1)
+        # cv2.imshow('Red2 Tuner',   red_mask2)
+        # cv2.imshow('Yellow Tuner', yellow_mask)
+        # cv2.imshow('Green Tuner',  green_mask)
 
         mask = cv2.bitwise_or(red_mask1, red_mask2)
         mask = cv2.bitwise_or(mask, yellow_mask)
