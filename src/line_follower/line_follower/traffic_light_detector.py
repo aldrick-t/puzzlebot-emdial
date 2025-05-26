@@ -27,9 +27,9 @@ class TrafficLightDetector(Node):
         self.model = YOLO('./src/line_follower/models/best.pt')
         # Map class indices → color strings
         self.class_map = {
-            0: 'red',
-            1: 'yellow',
-            2: 'green'
+            0: 'green',
+            1: 'red',
+            2: 'yellow'
         }
 
     def image_callback(self, img_msg: Image):
@@ -45,7 +45,7 @@ class TrafficLightDetector(Node):
 
         # No boxes → publish “no_detection”
         if results.boxes.shape[0] == 0:
-            detected_color = 'no_detection'
+            detected_color = 'none'
         else:
             # Find the detection with highest confidence
             confs = results.boxes.conf.cpu().numpy()
