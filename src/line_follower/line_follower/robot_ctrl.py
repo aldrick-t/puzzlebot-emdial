@@ -116,7 +116,7 @@ class RobotCtrl(Node):
         self.tl_red = False
         self.tl_yellow = False
         self.tl_green = False
-        self.start = False
+        self.moving = False
         self.first = True
         # Subscriptions
         # line command sub
@@ -218,15 +218,17 @@ class RobotCtrl(Node):
             self.tl_red = True
             self.tl_yellow = False
             self.tl_green = False
+            self.moving = False
         elif 'yellow' in colors:
             self.tl_yellow = True
             self.tl_red = False
             self.tl_green = False
         elif 'green' in colors:
             self.tl_green = True
-            self.start = True
+            self.moving = True
             self.tl_red = False
             self.tl_yellow = False
+
         color_str=['red','yellow','green']
         color = [self.tl_red,self.tl_yellow,self.tl_green]
         last_color = lambda x: color_str[x.index(True)] if True in x else 'Default'
@@ -237,7 +239,7 @@ class RobotCtrl(Node):
             
         # if not any((self.tl_red, self.tl_yellow, self.tl_green)):
         #     self.tl_green = True
-        #     self.start = True
+        #     self.moving = True
         #     self.get_logger().debug("Invalid traffic light data received, defaulting to GREEN.", throttle_duration_sec=5.0)
             
         self.traffic_light = colors
@@ -247,14 +249,14 @@ class RobotCtrl(Node):
         Timer callback function
         Publishes calculated control command to cmd_vel topic
         '''
-        if not self.ctrl_activate and not self.tl_green:
+        if ((self.ctrl_activate == False) and (self.moving == False)):
             # self.reset()
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
             return
         
-        if not self.ctrl_activate:
+        elif not self.ctrl_activate:
             # self.reset()
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
@@ -287,12 +289,13 @@ class RobotCtrl(Node):
             self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
             
             # Conditional to start only on green
-            if self.start:
+            if self.moving:
                 # Reduce speed to slow output limits
                 v = np.clip(v, 0, (self.v_limit_slow))
-            elif self.start is not True:
-                v = 0.00
-                
+            elif self.moving is not True:
+                #v = 0.00
+                self.get_logger().info("Traffic light YELLOW, NOT START FLAG!!!!.", throttle_duration_sec=2.0)
+            
             w = np.clip(w, (-self.w_limit_slow), (self.w_limit_slow))
             
         elif self.tl_green:

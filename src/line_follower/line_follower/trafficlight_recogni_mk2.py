@@ -39,8 +39,8 @@ class TLightRecogniMK2(Node):
         self.declare_parameter('h_r2_min', 154)
         self.declare_parameter('h_r2_max', 179)
         
-        self.declare_parameter('h_y_min', 14)
-        self.declare_parameter('h_y_max', 66)
+        self.declare_parameter('h_y_min', 19)
+        self.declare_parameter('h_y_max', 45)
         
         self.declare_parameter('h_g_min', 52)
         self.declare_parameter('h_g_max', 97)
@@ -61,7 +61,7 @@ class TLightRecogniMK2(Node):
         self.declare_parameter('v_r2_min', 175)
         self.declare_parameter('v_r2_max', 255)
         
-        self.declare_parameter('v_y_min', 161)
+        self.declare_parameter('v_y_min', 191)
         self.declare_parameter('v_y_max', 255)
         
         self.declare_parameter('v_g_min', 168)
@@ -209,10 +209,10 @@ class TLightRecogniMK2(Node):
         cv2.line(cv_image, (right_x,0),(right_x,h), (255,0,0), 2)
 
         # Read and apply HSV tuners
-        #self.lower_red1,   self.upper_red1   = self._read_color_tuner('Red1')
-        #self.lower_red2,   self.upper_red2   = self._read_color_tuner('Red2')
-        #self.lower_yellow, self.upper_yellow = self._read_color_tuner('Yellow')
-        #self.lower_green,  self.upper_green  = self._read_color_tuner('Green')
+        # self.lower_red1,   self.upper_red1   = self._read_color_tuner('Red1')
+        # self.lower_red2,   self.upper_red2   = self._read_color_tuner('Red2')
+        # self.lower_yellow, self.upper_yellow = self._read_color_tuner('Yellow')
+        # self.lower_green,  self.upper_green  = self._read_color_tuner('Green')
 
         red_mask1   = cv2.inRange(self.hsv_image, self.lower_red1,   self.upper_red1)
         red_mask2   = cv2.inRange(self.hsv_image, self.lower_red2,   self.upper_red2)
