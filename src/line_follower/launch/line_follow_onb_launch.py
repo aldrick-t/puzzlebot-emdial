@@ -58,14 +58,14 @@ def generate_launch_description():
             parameters=[{'use_sim_time': False}, config_ctrl]
         )
     
-    trafficlight_recogni = Node(
-            package='line_follower',
-            executable='trafficlight_recogni_mk2',
-            name='trafficlight_recogni_mk2',
-            parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',
-                         }, config_cv]
-        )
+    # trafficlight_recogni = Node(
+    #         package='line_follower',
+    #         executable='trafficlight_recogni_mk2',
+    #         name='trafficlight_recogni_mk2',
+    #         parameters=[{'use_sim_time': False,
+    #                      'camera_topic': 'video_source/raw',
+    #                      }, config_cv]
+    #     )
 
     
     return LaunchDescription([
@@ -73,5 +73,5 @@ def generate_launch_description():
         line_recogni,
         line_cmd,
         robot_ctrl,
-        trafficlight_recogni,
+        #trafficlight_recogni,
     ])
