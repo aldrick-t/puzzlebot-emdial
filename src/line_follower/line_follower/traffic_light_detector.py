@@ -24,7 +24,7 @@ class TrafficLightDetector(Node):
             10
         )
         # Load your custom-trained YOLOv8 model
-        self.model = YOLO('path/to/your_model.pt')
+        self.model = YOLO('./src/line_follower/models/best.pt')
         # Map class indices → color strings
         self.class_map = {
             0: 'red',
