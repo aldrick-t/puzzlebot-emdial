@@ -79,6 +79,8 @@ class RobotCtrl(Node):
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
+        # Traffic detection toggle
+        self.declare_parameter('detect_traffic', True)
         # Curve detect threshhold
         self.declare_parameter('curve_detect_thresh', 0.3)
         
@@ -107,17 +109,19 @@ class RobotCtrl(Node):
 
         # Curve detect threshhold
         self.curve_detect_thresh = self.get_parameter('curve_detect_thresh').value
+        # Control activation var
+        self.ctrl_activate = self.get_parameter('ctrl_activate').value
+        # Traffic detection flag
+        self.detect_traffic = self.get_parameter('detect_traffic').value
         
         # Init traffic light message var
         self.traffic_light = None
-        # Init control activation var
-        self.ctrl_activate = self.get_parameter('ctrl_activate').value
         # Traffic light state flags
         self.tl_red = False
         self.tl_yellow = False
         self.tl_green = False
-        self.start = False
-        
+        self.moving = False
+        self.first = True
         # Subscriptions
         # line command sub
         self.create_subscription(Float32, self.get_parameter('cmd_input_topic').value, self.line_cmd_cb, 10)
@@ -156,6 +160,12 @@ class RobotCtrl(Node):
                     self.cmd_vel.linear.x = 0.0
                     self.cmd_vel.angular.z = 0.0
                     self.cmd_vel_pub.publish(self.cmd_vel)
+            elif param.name == 'detect_traffic':
+                self.detect_traffic = param.value
+                if self.detect_traffic:
+                    self.get_logger().info("Traffic light detection ENABLED")
+                else:
+                    self.get_logger().info("Traffic light detection DISABLED")
             elif param.name == 'Kp_v':
                 self.Kp_v = param.value
                 self.get_logger().info(f"Kp_v set to {param.value}")
@@ -178,7 +188,7 @@ class RobotCtrl(Node):
                 self.v_limit_slow = param.value
                 self.get_logger().info(f"v_limit_slow set to {param.value}")
             elif param.name == 'w_limit_slow':
-                self.v_limit_slow = param.value
+                self.w_limit_slow = param.value
                 self.get_logger().info(f"w_limit_slow set to {param.value}")    
             elif param.name == 'v_limit_min':  
                 self.v_limit_min = param.value
@@ -211,29 +221,26 @@ class RobotCtrl(Node):
         raw = msg.data or ""
         # parse into a list of color tokens
         colors = [c.strip().lower() for c in raw.split(',') if c.strip()]
-        self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=10.0)
-        
-        # reset all flags
-        self.tl_red = False
-        self.tl_yellow = False
-        self.tl_green = False
+        self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=1.0)        
 
         # set flags based on which colors are present
         if 'red' in colors:
             self.tl_red = True
-        if 'yellow' in colors:
+            self.tl_yellow = False
+            self.tl_green = False
+            self.moving = False
+        elif 'yellow' in colors:
             self.tl_yellow = True
-        if 'green' in colors:
+            self.tl_red = False
+            self.tl_green = False
+        elif 'green' in colors:
             self.tl_green = True
-            self.start = True
+            self.moving = True
+            self.tl_red = False
+            self.tl_yellow = False
+
         if 'none' in colors:
-            self.tl_green = True
-            self.start = True
-            
-        if not any((self.tl_red, self.tl_yellow, self.tl_green)):
-            self.tl_green = True
-            self.start = True
-            self.get_logger().debug("Invalid traffic light data received, defaulting to GREEN.", throttle_duration_sec=5.0)
+            self.get_logger().debug(f"None detected, last color state remains.", throttle_duration_sec=1.0)
             
         self.traffic_light = colors
         
@@ -243,7 +250,7 @@ class RobotCtrl(Node):
         Publishes calculated control command to cmd_vel topic
         '''
         if not self.ctrl_activate:
-            # self.reset()
+            # Control deactivated: stop immediately
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
@@ -261,35 +268,36 @@ class RobotCtrl(Node):
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now 
         
-        v = 0.00
-        w = 0.00
-        
+        # Compute base control from line following
         v, w = self.control_sys(self.line_cmd)
         
-        # Conditionals for receieved traffic light data
+        # If traffic detection disabled, publish line-following commands directly
+        if not self.detect_traffic:
+            # Clip to normal limits
+            v = np.clip(v, 0, self.v_limit)
+            w = np.clip(w, -self.w_limit, self.w_limit)
+            self.cmd_vel.linear.x = v
+            self.cmd_vel.angular.z = -w
+            self.get_logger().debug(f"[Line only] Linear vel: {self.cmd_vel.linear.x}", throttle_duration_sec=1.0)
+            self.get_logger().debug(f"[Line only] Angular vel: {self.cmd_vel.angular.z}", throttle_duration_sec=1.0)
+            self.cmd_vel_pub.publish(self.cmd_vel)
+            return
+
+        # Traffic detection enabled: apply traffic light logic
         if self.tl_red:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
             self.soft_stop()
             return
         elif self.tl_yellow:
             self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
-            
-            # Conditional to start only on green
-            if self.start:
-                # Reduce speed to slow output limits
-                v = np.clip(v, 0, (self.v_limit_slow))
-            elif self.start is not True:
-                v = 0.00
-                
-            w = np.clip(w, (-self.w_limit_slow), (self.w_limit_slow))
-            
+            if self.moving:
+                v = np.clip(v, 0, self.v_limit_slow)
+            w = np.clip(w, -self.w_limit_slow, self.w_limit_slow)
         elif self.tl_green:
             self.get_logger().info("Traffic light GREEN, moving robot.", throttle_duration_sec=7.0)
-            # Set speed to normal output limits
-            v = np.clip(v, 0, (self.v_limit))
-            w = np.clip(w, (-self.w_limit), (self.w_limit))
-        else:
-            pass 
+            v = np.clip(v, 0, self.v_limit)
+            w = np.clip(w, -self.w_limit, self.w_limit)
+        # else: no change, proceed with base v,w
         
         # Publish cmd_vel twist message
         self.cmd_vel.linear.x = v
@@ -331,15 +339,11 @@ class RobotCtrl(Node):
              return 0.0, -0.3
         
         # Initialize vars
-        # angular error is line_cmd as calculated from LineRecogni and LineCmd
         if not down_l or down_r:
             self.error_w = line_cmd
-        # self.get_logger().debug(f"Receieved Line command: {line_cmd}", throttle_duration_sec=1.0)
         
         # Calculate velocity based on angular error
-        # If angular error is extreme (near 1 or -1), reduce velocity
         if abs(self.error_w) > self.curve_detect_thresh:
-            #vel_x = self.v_limit * 0.6
             vel_x = self.v_limit_min * (1 - abs(self.error_w))  # Reduce velocity proportionally
             self.get_logger().debug(f"Velocity reduced, Ang. Error over Safe Threshold", throttle_duration_sec=5.0)
         else:
@@ -347,7 +351,6 @@ class RobotCtrl(Node):
             self.get_logger().debug(f"Velocity set to max: {vel_x}", throttle_duration_sec=5.0)
 
         # Calculate angular velocity based on angular error
-        # PID control for angular velocity
         self.integral_w = getattr(self, 'integral_w', 0.0) + self.error_w * dt  # Integral term
         derivative_w = (self.error_w - getattr(self, 'prev_error_w', 0.0)) / dt if dt > 0 else 0.0  # Derivative term
         self.prev_error_w = self.error_w  # Update previous error
@@ -360,12 +363,9 @@ class RobotCtrl(Node):
 
         # Clip velocities to their respective limits
         vel_x = np.clip(vel_x, self.v_limit_min, self.v_limit)
-        vel_w = np.clip(vel_w, (-self.w_limit), self.w_limit)
-        
-    
+        vel_w = np.clip(vel_w, -self.w_limit, self.w_limit)
         
         return vel_x, vel_w
-    
     
     def reset(self):
         # Reset PID variables
@@ -386,8 +386,8 @@ class RobotCtrl(Node):
             self.cmd_vel.linear.x -= speed_dec
             self.traffic_light_cb
             temp, self.cmd_vel.angular.z = self.control_sys(self.line_cmd)
-            self.cmd_vel.angular.z = (-1 * (self.cmd_vel.angular.z))
-            self.cmd_vel.angular.z = np.clip(self.cmd_vel.angular.z, (-self.w_limit), self.w_limit)
+            self.cmd_vel.angular.z = -self.cmd_vel.angular.z
+            self.cmd_vel.angular.z = np.clip(self.cmd_vel.angular.z, -self.w_limit, self.w_limit)
             self.get_logger().info(f"Current Linear vel:   {self.cmd_vel.linear.x}", throttle_duration_sec=0.0)
             time.sleep(rate)  # Add sleep to control the rate of the loop
 
@@ -405,7 +405,6 @@ class RobotCtrl(Node):
             rclpy.spin_once(self, timeout_sec=0.1)
         self.get_logger().info('ROS time is active!')
         
-        
 def main(args=None):
     rclpy.init(args=args)
     node = RobotCtrl()
@@ -414,7 +413,6 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        
         node.destroy_node()
         rclpy.shutdown()
     
