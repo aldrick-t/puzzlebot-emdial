@@ -37,16 +37,25 @@ def generate_launch_description():
                          'camera_topic': 'video_source/raw',}]
         )
     
-    trafficlight_recogni = Node(
+    traffic_light_detector = Node(
             package='line_follower',
-            executable='trafficlight_recogni_legacy',
-            name='trafficlight_recogni_legacy',
+            executable='traffic_light_detector',
+            name='traffic_light_detector',
             parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',
-                         }, config_cv]
+                         'camera_topic': 'video_source/raw',}, config_cv]
         )
     
+    # trafficlight_recogni = Node(
+    #         package='line_follower',
+    #         executable='trafficlight_recogni_mk2',
+    #         name='trafficlight_recogni_mk2',
+    #         parameters=[{'use_sim_time': False,
+    #                      'camera_topic': 'video_source/raw',
+    #                      }, config_cv]
+    #     )
+    
     return LaunchDescription([
-        visual_monitor,
-        trafficlight_recogni,
+        # visual_monitor,
+        #trafficlight_recogni,
+        traffic_light_detector,
     ])

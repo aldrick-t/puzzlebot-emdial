@@ -107,7 +107,22 @@ class LineCmd(Node):
         # Process line command
         cmd_msg = self.process_line_cmd(process_img_data, line_recogni_data)
         # Publish command message
-        self.line_cmd_pub.publish(cmd_msg)
+        cmd_msg = cmd_msg.data
+        if cmd_msg > 1.1:
+            cmd_msg -= int(cmd_msg)
+            cmd_msg = 1.0 - cmd_msg
+            cmd_msg *= -1.0
+        elif cmd_msg < -1.1:
+            #self.get_logger().debug(f"AAAAAAAAAAAAAAAAAAAA: {cmd_msg}", throttle_duration_sec=1.0)
+            cmd_msg += int(cmd_msg) * -1.0
+            #self.get_logger().debug(f"BBBBBBBBBBBBBBBBBBBBB: {cmd_msg}", throttle_duration_sec=1.0)
+            cmd_msg = 1.0 + cmd_msg
+            #self.get_logger().debug(f"CCCCCCCCCCCCCCCCCCCCCCCCC: {cmd_msg}", throttle_duration_sec=1.0)
+            #cmd_msg *= -1.0
+        #self.get_logger().debug("SEXOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO", throttle_duration_sec=1.0)
+        cmd_msg_t = Float32()
+        cmd_msg_t.data = cmd_msg
+        self.line_cmd_pub.publish(cmd_msg_t)
         
         
         
@@ -123,8 +138,8 @@ class LineCmd(Node):
         # Define null thresholds as a percentage of the image width
         # null_thresh_l: % from the left edge of the image
         # null_thresh_r: % from the left edge of the image (or % from the right edge)
-        null_thresh_l = int(center_x * 0.95)
-        null_thresh_r = int(center_x * 1.05)
+        null_thresh_l = int(center_x * 0.98)
+        null_thresh_r = int(center_x * 1.02)
         
         # Add to overlay image
         cv2.line(img, (null_thresh_l, 0), (null_thresh_l, height), (255, 0, 100), 3)
@@ -151,10 +166,10 @@ class LineCmd(Node):
             cmd_msg.data = 0.0
         elif line_recogni < null_thresh_l:
             # Line is to the left of the null zone
-            cmd_msg.data = -1.0 * ((center_x - line_recogni) / center_x)
+            cmd_msg.data = -1.0 * ((center_x - line_recogni) / center_x) + null_thresh_l
         elif line_recogni > null_thresh_r:
             # Line is to the right of the null zone
-            cmd_msg.data = 1.0 * ((line_recogni - center_x) / center_x)
+            cmd_msg.data = 1.0 * ((line_recogni - center_x) / center_x) - null_thresh_r
             
         # Log command value
         self.get_logger().debug(f"Line command: {cmd_msg.data}", throttle_duration_sec=20.0)
@@ -187,4 +202,4 @@ if __name__ == '__main__':
         
         
         
-        
+# End of file
