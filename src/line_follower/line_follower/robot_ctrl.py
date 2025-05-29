@@ -62,11 +62,11 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_v', 0.0)
         self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 0.9) #2.0    #1.4
+        self.declare_parameter('Kp_w', 0.85) #2.0    #1.4
         self.declare_parameter('Ki_w', 0.1) #1.2    #1.9
-        self.declare_parameter('Kd_w', 0.005) #0.5   #0.09
+        self.declare_parameter('Kd_w', 0.007) #0.5   #0.09
         # Max speed dynamic parameters
-        self.declare_parameter('v_limit', 0.5)
+        self.declare_parameter('v_limit', 0.45)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
         self.declare_parameter('v_limit_slow', 0.2)
@@ -75,7 +75,7 @@ class RobotCtrl(Node):
         self.declare_parameter('v_limit_max', 0.7)
         self.declare_parameter('w_limit_max', 1.8)
         # Bend minimum speeds
-        self.declare_parameter('v_limit_min', 0.1)
+        self.declare_parameter('v_limit_min', 0.15)
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
@@ -329,7 +329,7 @@ class RobotCtrl(Node):
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, -0.3
         
-        self.error_w = line_cmd  # Use line_cmd directly as angular error
+        self.error_w = line_cmd  # Use line_cmd directly as angular errorS
         self.get_logger().debug(f"Angular error: {self.error_w}", throttle_duration_sec=1.0)
         
         
