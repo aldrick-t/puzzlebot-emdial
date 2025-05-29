@@ -286,7 +286,10 @@ class RobotCtrl(Node):
         # Traffic detection enabled: apply traffic light logic
         if self.tl_red:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
-            self.soft_stop()
+            # self.soft_stop()
+            v = 0
+            w = 0
+            self.cmd_vel_pub.publish(self.cmd_vel)
             return
         elif self.tl_yellow:
             self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
