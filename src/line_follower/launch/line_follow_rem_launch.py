@@ -15,7 +15,6 @@ def generate_launch_description():
     # Get package directory
     package_directory = get_package_share_directory('line_follower')
     
-    # Load the parameters from the YAML file
     config_cv = os.path.join(
         package_directory,
         'config',
@@ -44,14 +43,6 @@ def generate_launch_description():
             parameters=[{'use_sim_time': False,}, config_cv]
         )
     
-    visual_monitor = Node(
-            package='line_follower',
-            executable='visual_monitor',
-            name='visual_monitor',
-            parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',}]
-        )
-    
     line_cmd = Node(
             package='line_follower',
             executable='line_cmd',
@@ -65,21 +56,18 @@ def generate_launch_description():
             name='robot_ctrl',
             parameters=[{'use_sim_time': False}, config_ctrl]
         )
-    
-    trafficlight_recogni = Node(
+    traffic_light_detector = Node(
             package='line_follower',
-            executable='trafficlight_recogni_legacy',
-            name='trafficlight_recogni_legacy',
+            executable='traffic_light_detector',
+            name='traffic_light_detector',
             parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',
-                         }, config_cv]
+                         'camera_topic': 'video_source/raw',}, config_cv]
         )
     
     return LaunchDescription([
         cam_preprocess,
         line_recogni,
-        visual_monitor,
         line_cmd,
         robot_ctrl,
-        trafficlight_recogni,
+        #traffic_light_detector,
     ])

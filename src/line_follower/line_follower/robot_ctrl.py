@@ -9,6 +9,8 @@ Accepts variable control commands and data inputs.
 
 
 aldrick-t
+diegoq
+emanuelv
 MAY 2025
 '''
 import rclpy
@@ -20,6 +22,70 @@ from geometry_msgs.msg import Twist
 from rclpy.logging import LoggingSeverity
 from rcl_interfaces.msg import SetParametersResult
 import time
+import fuzzylite as fl
+
+
+engine = fl.Engine(name='LineFollowerFuzzyControl')
+
+# Line Error: -1.0 (very left) to 1.0 (very right)
+line_error = fl.InputVariable(
+    name='Line_Error', minimum=-1.05, maximum=1.05,
+    terms=[
+        fl.Trapezoid('CENTER', -0.05, -0.05, 0.05, 0.05),
+        fl.Trapezoid('SLIGHTLY_LEFT', -0.55, -0.3, -0.2, -0.05),
+        fl.Triangle('LEFT', -0.9, -0.55, -0.1),
+        fl.Triangle('RIGHT', 0.1, 0.55, 0.9),
+        fl.Trapezoid('SLIGHTLY_RIGHT', 0.05, 0.2, 0.3, 0.6),
+        fl.Trapezoid('STRONG_LEFT', -1.05, -1.0, -0.9, -0.15),
+        fl.Trapezoid('STRONG_RIGHT', 0.15, 0.9, 1.0, 1.05)
+    ]
+)
+
+engine.input_variables = [line_error]#, linear_speed]
+
+# === Output Variable (TSK) ===
+tsk_control = fl.OutputVariable()
+tsk_control.name = "tskLineFollowerControl"
+tsk_control.enabled = True
+tsk_control.range = (-1.2, 1.2)
+tsk_control.lock_range = False
+tsk_control.defuzzifier = fl.WeightedAverage("TakagiSugeno")
+tsk_control.aggregation = None
+tsk_control.default_value = fl.nan
+tsk_control.lock_previous = False
+
+# TSK Constants (output terms)
+tsk_control.terms.append(fl.Constant("NO_TURN", 0.0))
+tsk_control.terms.append(fl.Constant("SLIGHTLY_LEFT", 0.05))
+tsk_control.terms.append(fl.Constant("SLIGHTLY_RIGHT", -0.05))
+tsk_control.terms.append(fl.Constant("RIGHT", -0.3))
+tsk_control.terms.append(fl.Constant("LEFT", 0.3))
+tsk_control.terms.append(fl.Constant("STRONG_LEFT", 0.8))
+tsk_control.terms.append(fl.Constant("STRONG_RIGHT", -0.8))
+
+engine.output_variables = [tsk_control]
+
+# === TSK Rule Block ===
+tsk_rules = fl.RuleBlock()
+tsk_rules.name = "takagiSugenoControl"
+tsk_rules.enabled = True
+tsk_rules.conjunction = fl.AlgebraicProduct()
+tsk_rules.disjunction = fl.AlgebraicSum()
+tsk_rules.activation = fl.General()
+tsk_rules.implication = None
+
+# Rules for SLOW speed only
+tsk_rules.rules = [
+    fl.Rule.create("if Line_Error is CENTER then tskLineFollowerControl is NO_TURN", engine),
+    fl.Rule.create("if Line_Error is SLIGHTLY_LEFT then tskLineFollowerControl is SLIGHTLY_LEFT", engine),
+    fl.Rule.create("if Line_Error is SLIGHTLY_RIGHT then tskLineFollowerControl is SLIGHTLY_RIGHT", engine),
+    fl.Rule.create("if Line_Error is LEFT then tskLineFollowerControl is LEFT", engine),
+    fl.Rule.create("if Line_Error is RIGHT then tskLineFollowerControl is RIGHT", engine),
+    fl.Rule.create("if Line_Error is STRONG_LEFT then tskLineFollowerControl is STRONG_LEFT", engine),
+    fl.Rule.create("if Line_Error is STRONG_RIGHT then tskLineFollowerControl is STRONG_RIGHT", engine)
+]
+
+engine.rule_blocks.append(tsk_rules)
 
 class RobotCtrl(Node):
     '''
@@ -66,7 +132,7 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_w', 0.1) #1.2    #1.9
         self.declare_parameter('Kd_w', 0.007) #0.5   #0.09
         # Max speed dynamic parameters
-        self.declare_parameter('v_limit', 0.45)
+        self.declare_parameter('v_limit', 0.15)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
         self.declare_parameter('v_limit_slow', 0.2)
@@ -75,7 +141,7 @@ class RobotCtrl(Node):
         self.declare_parameter('v_limit_max', 0.7)
         self.declare_parameter('w_limit_max', 1.8)
         # Bend minimum speeds
-        self.declare_parameter('v_limit_min', 0.15)
+        self.declare_parameter('v_limit_min', 0.07)
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
@@ -208,7 +274,7 @@ class RobotCtrl(Node):
         self.line_cmd = msg.data
         
         self.line_cmd_received = True  # Set flag when message is received
-        self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=1.0)
+        self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=0.5)
         
     def traffic_light_cb(self, msg):
         """
@@ -256,57 +322,64 @@ class RobotCtrl(Node):
             return
 
         # Do not move until a line_cmd is received
-        if not self.line_cmd_received:
+        elif not self.line_cmd_received:
             self.get_logger().info("Waiting for line command message...", throttle_duration_sec=5.0)
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
             return
+        
+        else:
+            now = self.get_clock().now()
+            dt = (now - self.last_time).nanoseconds * 1e-9
+            self.last_time = now 
+            
+            # Compute base control from line following
+            #v, w = self.control_sys(self.line_cmd)
+            engine.input_variables[0].value = fl.scalar(self.line_cmd)  # SLIGHTLY_RIGHT
+            engine.process()
+            tsk_control.value = round(tsk_control.value, 2)
+            
+            w = tsk_control.value  # Apply fuzzy logic to line command
+            v = self.v_limit_min # Set base linear velocity to max limit
+            
+            # If traffic detection disabled, publish line-following commands directly
+            # if not self.detect_traffic:
+            #     # Clip to normal limits
+            #     v = np.clip(v, 0, self.v_limit)
+            #     w = np.clip(w, -self.w_limit, self.w_limit)
+            #     self.cmd_vel.linear.x = v
+            #     self.cmd_vel.angular.z = -w
+            #     self.get_logger().debug(f"[Line only] Linear vel: {self.cmd_vel.linear.x}", throttle_duration_sec=0.5)
+            #     self.get_logger().debug(f"[Line only] Angular vel: {self.cmd_vel.angular.z}", throttle_duration_sec=0.5)
+            #     self.cmd_vel_pub.publish(self.cmd_vel)
+            #     return
 
-        now = self.get_clock().now()
-        dt = (now - self.last_time).nanoseconds * 1e-9
-        self.last_time = now 
-        
-        # Compute base control from line following
-        v, w = self.control_sys(self.line_cmd)
-        
-        # If traffic detection disabled, publish line-following commands directly
-        if not self.detect_traffic:
-            # Clip to normal limits
-            v = np.clip(v, 0, self.v_limit)
-            w = np.clip(w, -self.w_limit, self.w_limit)
+            # Traffic detection enabled: apply traffic light logic
+            # if self.tl_red:
+            #     self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
+            #     # self.soft_stop()
+            #     v = 0
+            #     w = 0
+            #     self.cmd_vel_pub.publish(self.cmd_vel)
+            #     return
+            # elif self.tl_yellow:
+            #     self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
+            #     if self.moving:
+            #         v = np.clip(v, 0, self.v_limit_slow)
+            #     w = np.clip(w, -self.w_limit_slow, self.w_limit_slow)
+            # elif self.tl_green:
+            #     self.get_logger().info("Traffic light GREEN, moving robot.", throttle_duration_sec=7.0)
+            #     v = np.clip(v, 0, self.v_limit)
+            #     w = np.clip(w, -self.w_limit, self.w_limit)
+            # else: no change, proceed with base v,w
+            
+            # Publish cmd_vel twist message
             self.cmd_vel.linear.x = v
-            self.cmd_vel.angular.z = -w
-            self.get_logger().debug(f"[Line only] Linear vel: {self.cmd_vel.linear.x}", throttle_duration_sec=1.0)
-            self.get_logger().debug(f"[Line only] Angular vel: {self.cmd_vel.angular.z}", throttle_duration_sec=1.0)
+            self.cmd_vel.angular.z = w
+            self.get_logger().debug(f"Current Linear vel:   {self.cmd_vel.linear.x}", throttle_duration_sec=0.5)
+            self.get_logger().debug(f"Current Angular vel:  {self.cmd_vel.angular.z}", throttle_duration_sec=0.5)
             self.cmd_vel_pub.publish(self.cmd_vel)
-            return
-
-        # Traffic detection enabled: apply traffic light logic
-        if self.tl_red:
-            self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
-            # self.soft_stop()
-            v = 0
-            w = 0
-            self.cmd_vel_pub.publish(self.cmd_vel)
-            return
-        elif self.tl_yellow:
-            self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
-            if self.moving:
-                v = np.clip(v, 0, self.v_limit_slow)
-            w = np.clip(w, -self.w_limit_slow, self.w_limit_slow)
-        elif self.tl_green:
-            self.get_logger().info("Traffic light GREEN, moving robot.", throttle_duration_sec=7.0)
-            v = np.clip(v, 0, self.v_limit)
-            w = np.clip(w, -self.w_limit, self.w_limit)
-        # else: no change, proceed with base v,w
-        
-        # Publish cmd_vel twist message
-        self.cmd_vel.linear.x = v
-        self.cmd_vel.angular.z = -w
-        self.get_logger().debug(f"Current Linear vel:   {self.cmd_vel.linear.x}", throttle_duration_sec=1.0)
-        self.get_logger().debug(f"Current Angular vel:  {self.cmd_vel.angular.z}", throttle_duration_sec=1.0)
-        self.cmd_vel_pub.publish(self.cmd_vel)
     
     def control_sys(self, line_cmd):
         '''
