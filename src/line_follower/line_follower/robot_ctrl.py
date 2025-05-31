@@ -62,11 +62,11 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_v', 0.0)
         self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 0.9) #2.0    #1.4
+        self.declare_parameter('Kp_w', 0.85) #2.0    #1.4
         self.declare_parameter('Ki_w', 0.1) #1.2    #1.9
-        self.declare_parameter('Kd_w', 0.005) #0.5   #0.09
+        self.declare_parameter('Kd_w', 0.007) #0.5   #0.09
         # Max speed dynamic parameters
-        self.declare_parameter('v_limit', 0.5)
+        self.declare_parameter('v_limit', 0.45)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
         self.declare_parameter('v_limit_slow', 0.2)
@@ -75,7 +75,7 @@ class RobotCtrl(Node):
         self.declare_parameter('v_limit_max', 0.7)
         self.declare_parameter('w_limit_max', 1.8)
         # Bend minimum speeds
-        self.declare_parameter('v_limit_min', 0.1)
+        self.declare_parameter('v_limit_min', 0.15)
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
@@ -121,7 +121,6 @@ class RobotCtrl(Node):
         self.tl_yellow = False
         self.tl_green = False
         self.moving = False
-        self.first = True
         # Subscriptions
         # line command sub
         self.create_subscription(Float32, self.get_parameter('cmd_input_topic').value, self.line_cmd_cb, 10)
@@ -286,7 +285,10 @@ class RobotCtrl(Node):
         # Traffic detection enabled: apply traffic light logic
         if self.tl_red:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
-            self.soft_stop()
+            # self.soft_stop()
+            v = 0
+            w = 0
+            self.cmd_vel_pub.publish(self.cmd_vel)
             return
         elif self.tl_yellow:
             self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
@@ -311,36 +313,25 @@ class RobotCtrl(Node):
         Control system function
         Processes line command and traffic light data to generate control vel command
         '''
-        #Timer init
-        if self.first:
-            self.error_w = line_cmd
-            self.first = False
+        
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now 
-        down_l = False
-        down_r = False
-        dif = abs(self.error_w-line_cmd)
-        if dif > 0.6:
-            if (self.error_w+line_cmd) > 0.0:
-                down_l = True
-            else:
-                down_r = True
         
         # Lost Line detection and recovery
         # Check if line is lost, indicated by a command >= abs(1)
-        if line_cmd <= -1 or down_l :
+        if line_cmd <= -1 :
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, 0.3  #
-        elif line_cmd >= 1 or down_r:
+        elif line_cmd >= 1 :
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, -0.3
         
-        # Initialize vars
-        if not down_l or down_r:
-            self.error_w = line_cmd
+        self.error_w = line_cmd  # Use line_cmd directly as angular errorS
+        self.get_logger().debug(f"Angular error: {self.error_w}", throttle_duration_sec=1.0)
+        
         
         # Calculate velocity based on angular error
         if abs(self.error_w) > self.curve_detect_thresh:
