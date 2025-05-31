@@ -40,3 +40,5 @@ Dockerfile
 # Python specific
 __pycache__/
 .venv/
+puzzlebot_3.10/
+

@@ -113,13 +113,8 @@ class LineCmd(Node):
             cmd_msg = 1.0 - cmd_msg
             cmd_msg *= -1.0
         elif cmd_msg < -1.1:
-            #self.get_logger().debug(f"AAAAAAAAAAAAAAAAAAAA: {cmd_msg}", throttle_duration_sec=1.0)
             cmd_msg += int(cmd_msg) * -1.0
-            #self.get_logger().debug(f"BBBBBBBBBBBBBBBBBBBBB: {cmd_msg}", throttle_duration_sec=1.0)
             cmd_msg = 1.0 + cmd_msg
-            #self.get_logger().debug(f"CCCCCCCCCCCCCCCCCCCCCCCCC: {cmd_msg}", throttle_duration_sec=1.0)
-            #cmd_msg *= -1.0
-        #self.get_logger().debug("SEXOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO", throttle_duration_sec=1.0)
         cmd_msg_t = Float32()
         cmd_msg_t.data = cmd_msg
         self.line_cmd_pub.publish(cmd_msg_t)
@@ -166,10 +161,10 @@ class LineCmd(Node):
             cmd_msg.data = 0.0
         elif line_recogni < null_thresh_l:
             # Line is to the left of the null zone
-            cmd_msg.data = -1.0 * ((center_x - line_recogni) / center_x) + null_thresh_l
+            cmd_msg.data = -1.0 * ((center_x - line_recogni) / center_x) 
         elif line_recogni > null_thresh_r:
             # Line is to the right of the null zone
-            cmd_msg.data = 1.0 * ((line_recogni - center_x) / center_x) - null_thresh_r
+            cmd_msg.data = 1.0 * ((line_recogni - center_x) / center_x)
             
         # Log command value
         self.get_logger().debug(f"Line command: {cmd_msg.data}", throttle_duration_sec=20.0)

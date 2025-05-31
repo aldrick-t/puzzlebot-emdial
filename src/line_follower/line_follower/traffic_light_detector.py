@@ -25,6 +25,9 @@ class TrafficLightDetector(Node):
         # Create a named window for display
         self.window_name = 'Traffic Light Detection'
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        
+        # Confidence threshold
+        self.conf_threshold = 0.55
 
         # Subscribe to your camera feed
         self.create_subscription(
@@ -69,44 +72,61 @@ class TrafficLightDetector(Node):
         results = self.model(frame)[0]
 
         # Overlay detections
-        if results.boxes.shape[0] > 0:
+        if results.boxes.shape[0] > 0.6:
             # Extract numpy arrays
             boxes    = results.boxes.xyxy.cpu().numpy()
             confs    = results.boxes.conf.cpu().numpy()
             class_ids= results.boxes.cls.cpu().numpy().astype(int)
+            
+            # Filter by confidence
+            mask = confs > self.conf_threshold
+            boxes = boxes[mask]
+            confs = confs[mask]
+            class_ids = class_ids[mask]
 
-            for box, conf, cls_id in zip(boxes, confs, class_ids):
-                x1, y1, x2, y2 = map(int, box)
-                class_name    = self.class_map.get(cls_id, 'unknown')
-                color         = self.colors.get(class_name, self.colors['unknown'])
-                # Draw bounding box
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                # Draw label + confidence
-                label = f"{class_name}: {conf:.2f}"
+            if confs.size > 0:
+                for box, conf, cls_id in zip(boxes, confs, class_ids):
+                    x1, y1, x2, y2 = map(int, box)
+                    class_name    = self.class_map.get(cls_id, 'unknown')
+                    color         = self.colors.get(class_name, self.colors['unknown'])
+                    # Draw bounding box
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    # Draw label + confidence
+                    label = f"{class_name}: {conf:.2f}"
+                    cv2.putText(
+                        frame, label, (x1, max(y1 - 10, 0)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
+                    )
+
+                # Determine top confidence for publishing
+                best_idx       = int(confs.argmax())
+                self.detected_color = self.class_map.get(class_ids[best_idx], 'unknown')
+                
+            else:
+                # had detections, no conf
                 cv2.putText(
-                    frame, label, (x1, max(y1 - 10, 0)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
+                    frame,
+                    'No hi-conf detect',
+                    (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255),2
                 )
-
-            # Determine top confidence for publishing
-            best_idx       = int(confs.argmax())
-            detected_color = self.class_map.get(class_ids[best_idx], 'unknown')
+                
         else:
             # No detections: annotate and publish "none"
             cv2.putText(
                 frame, 'No detection', (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2
             )
-            detected_color = 'none'
+            self.detected_color = 'none'
 
         # Show the frame with overlays
         cv2.imshow(self.window_name, frame)
         cv2.waitKey(1)  # needed to refresh the window
 
         # Publish the detected traffic-light color
-        msg = String(data=detected_color)
+        msg = String(data=self.detected_color)
         self.publisher.publish(msg)
-        self.get_logger().info(f'Published traffic light color: "{detected_color}"')
+        self.get_logger().info(f'Published traffic light color: "{self.detected_color}"')
 
 def main(args=None):
     rclpy.init(args=args)
