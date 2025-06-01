@@ -1,5 +1,6 @@
 ''' 
 line_recogni.py
+Refactored for puzzlebot_emdial package.
 
 Line Recognition Node
 Node subscribes to camera stream topic and applies line recognition algorithm.
@@ -48,7 +49,8 @@ class LineRecogni(Node):
         self.logger.info("LineRecogni Starting Initialization...")
     
         # Parameters immutable after startup sequence
-        # None
+        # Video source (determined by launch mode)
+        self.declare_parameter('camera_topic', 'video_source/raw')
         
         # Dynamic parameters
         # Logging level
@@ -60,14 +62,11 @@ class LineRecogni(Node):
         self.add_on_set_parameters_callback(self.parameter_callback)
         
         # Subscriptions
-        self.create_subscription(Image, 'gray_processed', self.img_cb, 10)
+        self.create_subscription(Image, self.get_parameter('camera_topic'), self.img_cb, 10)
         
         # Publishers
         # Image publishers
-        self.hough_pub = self.create_publisher(Image, 'line_overlay', 10)
-        self.canny_pub = self.create_publisher(Image, 'canny_processed', 10)
-        self.prox_pub = self.create_publisher(Image, 'prox_processed', 10)
-        self.prox_overlay_pub = self.create_publisher(Image, 'prox_overlay', 10)
+        self.prox_overlay_pub = self.create_publisher(Image, 'lr_overlay', 10)
         # Data publishers
         self.line_recogni_prox_pub = self.create_publisher(Int32, 'line_recogni', 10)
         self.line_recogni_mid_pub = self.create_publisher(Int32, 'line_recogni_mid', 10)
@@ -94,95 +93,49 @@ class LineRecogni(Node):
         # Convert ROS image to OpenCV format
         cv_raw = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         
-        # Process the image (e.g., line detection)
-        hough_image, canny_image = self.process_image(cv_raw)
+        # CV preprocessing
+        cv_preprocessed_fullframe = self.preprocess_fullframe(cv_raw)
         
-        prox_image, prox_overlay_image, centroid_x = self.process_proximal_line(cv_raw)
+        prox_image, prox_overlay_image, prox_centroid_x = self.process_proximal_line(cv_preprocessed_fullframe)
+        mid_image, mid_overlay_image, mid_centroid_x = self.process_midrange_line(cv_preprocessed_fullframe)
         
         # Convert processed images back to ROS format
-        # hough_ros_image = self.bridge.cv2_to_imgmsg(hough_image, encoding='bgr8')
-        # canny_ros_image = self.bridge.cv2_to_imgmsg(canny_image, encoding='mono8')
-        proximal_ros_image = self.bridge.cv2_to_imgmsg(prox_image, encoding='mono8')
         prox_overlay_ros_image = self.bridge.cv2_to_imgmsg(prox_overlay_image, encoding='bgr8')
         
         # Publish the processed images
-        # self.hough_pub.publish(hough_ros_image)
-        # self.canny_pub.publish(canny_ros_image)
-        self.prox_pub.publish(proximal_ros_image)
         self.prox_overlay_pub.publish(prox_overlay_ros_image)
         
         # Publish the centroid x coordinate
-        if centroid_x is None:
+        if prox_centroid_x is None:
             self.get_logger().debug("No line detected; publishing None", throttle_duration_sec=2.0)
             # Using -1 here to indicate lack of detection. Adjust as needed.
-            msgInt.data = -1  
+            # msgInt.data = -1  #Commented out to avoid confusion with valid data
         else:
-            msgInt.data = int(centroid_x)
+            msgInt.data = int(prox_centroid_x)
         self.line_recogni_prox_pub.publish(msgInt)
         
-    def process_image(self, image):
+    def preprocess_fullframe(self, image):
         '''
-        Process the image to detect lines.
-        Applies Crop, Gaussian blur, Canny edge detection, and Hough line detection.
+        Preprocess the full frame image for line detection.
+        Applies Gaussian blur, grayscale conversion, and fixed binary thresholding.
         '''
-        
-        # Crop the image (crop from top to bottom)
-        height, width = image.shape[:2]
-        crop_height = int(40) #pixels
-        # image = image[crop_height:height, 0:width]
-        image = image[crop_height:, :] #
-        
-        # Redundant grayscale conversion
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Fixed binary thresholding
-        # Parameters: cv2.threshold(src, thresh, maxval, type)
-        #_, image = cv2.threshold(image, 20, 255, cv2.THRESH_BINARY)
+        # Convert to grayscale
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         # Apply Gaussian blur
-        # Parameters: cv2.GaussianBlur(src, ksize, sigmaX)
-        #image = cv2.GaussianBlur(image, (7, 7), 6)
+        image = cv2.GaussianBlur(image, (5, 5), 0)
         
-        # Fixed binary thresholding
+        # Fixed binary thresholding (inverted for contour detection)
         # Parameters: cv2.threshold(src, thresh, maxval, type)
-        #_, image = cv2.threshold(image, 20, 255, cv2.THRESH_BINARY)
+        _, image = cv2.threshold(image, 80, 255, cv2.THRESH_BINARY_INV)
         
-        # Apply morpohological operations
-        morph_kernel = np.ones((7, 7), np.uint8)
-        morph2_kernel = np.ones((5, 5), np.uint8)
-        elipse_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-        # image = cv2.erode(image, morph_kernel, iterations=2)
-        
-        # Parameters: cv2.morphologyEx(src, op, kernel)
-        image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, elipse_kernel, iterations=1)
-        image = cv2.morphologyEx(image, cv2.MORPH_OPEN, elipse_kernel, iterations=2)
-        
-        # Gaussian blur & thresholding
-        image = cv2.GaussianBlur(image, (7, 7), 0)
-        _, image = cv2.threshold(image, 50, 255, cv2.THRESH_BINARY)
-        
-        # Canny edge detection
-        # Parameters: cv2.Canny(image, threshold1, threshold2)
-        edges = cv2.Canny(image, 50, 150)
-        
-        # Hough line detection
-        # Parameters: cv2.HoughLinesP(image, rho, theta, threshold, minLineLength, maxLineGap)
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=20, maxLineGap=10)
-        
-        # Draw lines on the original image
-        if lines is not None:
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
-                cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        
-        return image, edges
-    
+        return image
+ 
     def process_proximal_line(self, image):
         '''
         Process the image to detect prox range line.
-        Applies Crop, Gaussian blur,
+        Calculates the centroid of the determined contour (centerline in proximal range).
         '''
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         overlay_image = image.copy()
         
@@ -194,16 +147,8 @@ class LineRecogni(Node):
         # Cropped image dimensions
         c_height, c_width = image.shape[:2]
         
-        # Apply Gaussian blur
-        image = cv2.GaussianBlur(image, (5, 5), 0)
-        
-        # Fixed binary thresholding
-        # Parameters: cv2.threshold(src, thresh, maxval, type)
-        _, image = cv2.threshold(image, 80, 255, cv2.THRESH_BINARY_INV)
-        
         # Find contours
         contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
         
         # Condition to check if contours are found
         if not contours:
@@ -255,6 +200,18 @@ class LineRecogni(Node):
         
         
         return image, overlay_image, cx
+    
+    def process_midrange_line(self, image):
+        '''
+        Process the image to detect mid-range line.
+        Applies Crop, Gaussian blur,
+        '''
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        overlay_image = image.copy()
+        
+       
+    
     
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')

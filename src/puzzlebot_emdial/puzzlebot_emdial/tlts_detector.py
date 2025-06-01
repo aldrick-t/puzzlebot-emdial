@@ -17,9 +17,9 @@ from cv_bridge import CvBridge
 from ultralytics import YOLO
 import cv2
 
-class TrafficLightDetector(Node):
+class TLTSDetector(Node):
     def __init__(self):
-        super().__init__('traffic_light_detector')
+        super().__init__('tlts_detector')
         self.bridge = CvBridge()
 
         # Create a named window for display
@@ -51,11 +51,14 @@ class TrafficLightDetector(Node):
         }
         # BGR colors for drawing
         self.colors = {
-            'red':    (0,   0, 255),
-            'yellow': (0, 255, 255),
-            'green':  (0, 255,   0),
-            'unknown':(255,255,255)
-            ''
+            'red':          (0, 0, 255),
+            'yellow':       (0, 255, 255),
+            'green':        (0, 255, 0),
+            'unknown':      (255, 255, 255),
+            'stop':         (255, 0, 255),  # For stop signs
+            'dir_signs':    (255, 0, 0), # For other traffic signs
+            'warn_signs':   (0, 200, 255)  # For yield signs
+            
         }
 
     def image_callback(self, img_msg: Image):
@@ -111,7 +114,7 @@ class TrafficLightDetector(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = TrafficLightDetector()
+    node = TLTSDetector()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
