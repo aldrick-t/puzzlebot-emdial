@@ -115,18 +115,11 @@ class LineCmd(Node):
             cmd_msg = 1.0 - cmd_msg
             cmd_msg *= -1.0
         elif cmd_msg < -1.1:
-            #self.get_logger().debug(f"AAAAAAAAAAAAAAAAAAAA: {cmd_msg}", throttle_duration_sec=1.0)
             cmd_msg += int(cmd_msg) * -1.0
-            #self.get_logger().debug(f"BBBBBBBBBBBBBBBBBBBBB: {cmd_msg}", throttle_duration_sec=1.0)
             cmd_msg = 1.0 + cmd_msg
-            #self.get_logger().debug(f"CCCCCCCCCCCCCCCCCCCCCCCCC: {cmd_msg}", throttle_duration_sec=1.0)
-            #cmd_msg *= -1.0
-        #self.get_logger().debug("SEXOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO", throttle_duration_sec=1.0)
         cmd_msg_t = Float32()
         cmd_msg_t.data = cmd_msg
-        self.line_cmd_pub.publish(cmd_msg_t)
-        
-        
+        self.line_cmd_pub.publish(cmd_msg_t)     
         
     def process_source_image(self, img):
         '''
