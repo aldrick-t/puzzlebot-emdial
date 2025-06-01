@@ -1,11 +1,13 @@
 '''
 line_cmd.py
+Refactored for puzzlebot_emdial package.
 
 Line Command Node
 Node subscribes to LineRecogni topics and publishes commands based on line detection.
 
-aldrick-t
-MAY 2025
+Base by: aldrick-t
+Enhanced by: emdial
+JUN 2025
 '''
 
 import rclpy
