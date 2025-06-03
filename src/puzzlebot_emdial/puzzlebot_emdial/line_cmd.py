@@ -6,7 +6,7 @@ Line Command Node
 Node subscribes to LineRecogni topics and publishes commands based on line detection.
 
 Base by: aldrick-t
-Enhanced by: emdial
+Enhanced by: Team emdial
 JUN 2025
 '''
 
