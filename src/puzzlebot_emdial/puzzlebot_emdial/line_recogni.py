@@ -50,19 +50,24 @@ class LineRecogni(Node):
     
         # Parameters immutable after startup sequence
         # Video source (determined by launch mode)
-        self.declare_parameter('camera_topic', 'video_source/raw')
+        self.declare_parameter('camera_topic', 'camera')
         
         # Dynamic parameters
         # Logging level
         self.declare_parameter('log_severity', 'DEBUG')
         # Line detection parameters
         # None
+        # Personalization parameters
+        self.declare_parameter('resolution_factor', 1)  # Factor to  scale resolution of the overlay 
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
         
+        # Variables
+        self.res_factor = self.get_parameter('resolution_factor').value
+        
         # Subscriptions
-        self.create_subscription(Image, self.get_parameter('camera_topic'), self.img_cb, 10)
+        self.create_subscription(Image, self.get_parameter('camera_topic').value, self.img_cb, 10)
         
         # Publishers
         # Image publishers
@@ -81,6 +86,11 @@ class LineRecogni(Node):
                 self.get_logger().set_level(severity)
                 rclpy.logging.get_logger('rclpy').set_level(severity)
                 self.get_logger().info(f"Log severity set to {param.value}")
+            elif param.name == 'resolution_factor':
+                self.res_factor = param.value
+                self.get_logger().info(f"Resolution factor set to {self.res_factor}")
+            elif param.name == 'camera_topic':
+                self.get_logger().info(f"Camera topic set to {param.value}")
         
         return SetParametersResult(successful=True)
     
@@ -136,7 +146,7 @@ class LineRecogni(Node):
     def preprocess_fullframe(self, image):
         '''
         Preprocess the full frame image for line detection.
-        Applies Gaussian blur, grayscale conversion, and fixed binary thresholding.
+        Applies Gaussian blur, grayscale conversion, and fixed inverse binary thresholding.
         '''
         # Convert to grayscale
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -172,7 +182,7 @@ class LineRecogni(Node):
         # Condition to check if contours are found
         if not contours:
             self.get_logger().debug("No contours found", throttle_duration_sec=5.0)
-            overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_GRAY2BGR)
+            #overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_GRAY2BGR)
             return image, overlay_image, None
         else:
             self.get_logger().debug("No valid moments; no line detected", throttle_duration_sec=5.0)
@@ -193,31 +203,40 @@ class LineRecogni(Node):
         else:
             self.get_logger().debug("No contour found", throttle_duration_sec=5.0)
             
-        
         #Draw Overlay
         
         # Convert to BGR for colroful overlay
             
-        # Draw all contours
-        # Parameters: cv2.drawContours(img, contours, contourIdx, color, thickness)
-        cv2.drawContours(overlay_image, contours, -1, (0, 200, 255), 1)
-        # Draw the largest contour
-        cv2.drawContours(overlay_image, [max_contour], -1, (0, 255, 0), 1)
+        # Draw all contours with offset to account for cropping
+        offset_y = crop_height  # vertical offset due to cropping the image from crop_height to bottom
+        # Create adjusted contours by adding offset to y-coordinates
+        adjusted_contours = [cnt.copy() for cnt in contours]
+        for cnt in adjusted_contours:
+            cnt[:, :, 1] += offset_y
+        
+        # Adjust the largest contour as well
+        adjusted_max_contour = max_contour.copy()
+        adjusted_max_contour[:, :, 1] += offset_y
+
+        # Draw all adjusted contours
+        cv2.drawContours(overlay_image, adjusted_contours, -1, (0, 200, 255), self.res_factor)
+        # Draw the adjusted largest contour
+        cv2.drawContours(overlay_image, [adjusted_max_contour], -1, (0, 255, 0), self.res_factor)
         
         # Draw the centroid for max contour if it exists
         if cx is not None and cy is not None:
             # Draw the centroid
             # Parameters: cv2.circle(img, center, radius, color, thickness)
-            cv2.circle(overlay_image, (cx, cy), 5, (0, 0, 255), -1)
+            cv2.circle(overlay_image, (cx, (crop_height+cy)), 5, (0, 0, 255), -1)
             #Draw vertical line following centroid
-            cv2.line(overlay_image, (cx, 0), (cx, height), (0, 0, 255), 1)
+            cv2.line(overlay_image, (cx, 0), (cx, height), (0, 0, 255), self.res_factor)
             
         #Draw fixed vertical line at center of image
         # Parameters: cv2.line(img, pt1, pt2, color, thickness)
-        cv2.line(overlay_image, (int(c_width/2), 0), (int(c_width/2), o_height), (255, 100, 0), 1)
+        cv2.line(overlay_image, (int(c_width/2), 0), (int(c_width/2), o_height), (255, 100, 0), self.res_factor)
         
         # Draw horizontal line to indicate crop limit
-        cv2.line(overlay_image, (0, crop_height), (o_width, crop_height), (255, 0, 0), 1)
+        cv2.line(overlay_image, (0, crop_height), (o_width, crop_height), (255, 0, 0), self.res_factor)
         
         return image, overlay_image, cx
     
@@ -231,8 +250,8 @@ class LineRecogni(Node):
         # Get overlay image dimensions
         o_height, o_width = overlay_image.shape[:2]
         # Crop the image to focus on the mid-range
-        crop_height_top = int(height * 0.50)
-        crop_height_bottom = int(height * 0.65)
+        crop_height_top = int(height * 0.45)
+        crop_height_bottom = int(height * 1.00)
         image = image[crop_height_top:crop_height_bottom, :]
         
         # Cropped image dimensions
@@ -244,7 +263,7 @@ class LineRecogni(Node):
         # Condition to check if contours are found
         if not contours:
             self.get_logger().debug("No contours found", throttle_duration_sec=5.0)
-            overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_GRAY2BGR)
+            #overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_GRAY2BGR)
             return image, overlay_image, None
         else:
             self.get_logger().debug("No valid moments; no line detected", throttle_duration_sec=5.0)
@@ -267,9 +286,10 @@ class LineRecogni(Node):
         centroids = [(int(m["m10"] / m["m00"]), int(m["m01"] / m["m00"])) for m in valid_moments]
         
         # Calculate centroid for the largest contour
-        if moments[max_contour]["m00"] != 0:
-            cx = int(moments[max_contour]["m10"] / moments[max_contour]["m00"])
-            cy = int(moments[max_contour]["m01"] / moments[max_contour]["m00"])
+        max_moment = cv2.moments(max_contour)
+        if max_moment["m00"] != 0:
+            cx = int(max_moment["m10"] / max_moment["m00"])
+            cy = int(max_moment["m01"] / max_moment["m00"])
             self.get_logger().debug(f"Centroid: ({cx}, {cy})", throttle_duration_sec=10.0)
         else:
             self.get_logger().debug("No contour found", throttle_duration_sec=5.0)
@@ -293,33 +313,42 @@ class LineRecogni(Node):
         
         # Draw Overlay
         
-        # Draw all contours
-        # Parameters: cv2.drawContours(img, contours, contourIdx, color, thickness)
-        cv2.drawContours(overlay_image, contours, -1, (0, 200, 255), 1)
+        # Draw all contours with offset to account for cropping
+        offset_y = crop_height_top  # vertical offset due to cropping the image from crop_height to bottom
+        # Create adjusted contours by adding offset to y-coordinates
+        adjusted_contours = [cnt.copy() for cnt in contours]
+        for cnt in adjusted_contours:
+            cnt[:, :, 1] += offset_y
         
-        # Draw the largest contour
-        cv2.drawContours(overlay_image, [max_contour], -1, (0, 255, 0), 1)
+        # Adjust the largest contour as well
+        adjusted_max_contour = max_contour.copy()
+        adjusted_max_contour[:, :, 1] += offset_y
+
+        # Draw all adjusted contours
+        cv2.drawContours(overlay_image, adjusted_contours, -1, (0, 200, 255), self.res_factor)
+        # Draw the adjusted largest contour
+        cv2.drawContours(overlay_image, [adjusted_max_contour], -1, (0, 255, 0), self.res_factor)
         
         # Draw all centroids for valid contours
         for cx, cy in centroids:
             # Draw the centroid
-            cv2.circle(overlay_image, (cx, cy), 5, (0, 200, 255), -1)
+            cv2.circle(overlay_image, (cx, (crop_height_top+cy)), 5, (0, 200, 255), -1)
             # Draw vertical line following centroid
-            cv2.line(overlay_image, (cx, 0), (cx, height), (0, 200, 255), 1)
+            cv2.line(overlay_image, (cx, 0), (cx, height), (0, 200, 255), self.res_factor)
         
         # Draw the centroid for max contour if it exists
         if cx is not None and cy is not None:
             # Draw the centroid
-            cv2.circle(overlay_image, (cx, cy), 5, (0, 0, 255), -1)
+            cv2.circle(overlay_image, (cx, (crop_height_top+cy)), 5, (0, 0, 255), -1)
             # Draw vertical line following centroid
-            cv2.line(overlay_image, (cx, 0), (cx, height), (0, 0, 255), 1)
+            cv2.line(overlay_image, (cx, 0), (cx, height), (0, 0, 255), self.res_factor)
         
         # Draw fixed vertical line at center of image
-        cv2.line(overlay_image, (int(c_width/2), 0), (int(c_width/2), o_height), (255, 100, 0), 1)
+        cv2.line(overlay_image, (int(c_width/2), 0), (int(c_width/2), o_height), (255, 100, 0), self.res_factor)
         
         # Draw horizontal lines to indicate crop limits
-        cv2.line(overlay_image, (0, crop_height_top), (o_width, crop_height_top), (255, 0, 0), 1)
-        cv2.line(overlay_image, (0, crop_height_bottom), (o_width, crop_height_bottom), (255, 0, 0), 1)
+        cv2.line(overlay_image, (0, crop_height_top), (o_width, crop_height_top), (255, 0, 0), self.res_factor)
+        cv2.line(overlay_image, (0, crop_height_bottom), (o_width, crop_height_bottom), (255, 0, 0), self.res_factor)
         
         return image, overlay_image, cx, cx_all
     
