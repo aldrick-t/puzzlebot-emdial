@@ -56,18 +56,27 @@ class LineRecogni(Node):
         # Logging level
         self.declare_parameter('log_severity', 'DEBUG')
         # Line detection parameters
-        self.declare_parameter('midfield_range', 0.45)  # Midfield range as a fraction of the image height
-        self.declare_parameter('proximal_range', 0.85)  # Proximal range as a fraction of the image height
+        self.declare_parameter('midfield_range', 0.55)  # Midfield range as a fraction of the image height
+        self.declare_parameter('proximal_range', 0.07)  # Proximal range as a fraction of the image height
         # Personalization parameters
         self.declare_parameter('resolution_factor', 1)  # Factor to  scale resolution of the overlay 
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
         
-        # Variables
+        # Parameter variables
         self.res_factor = self.get_parameter('resolution_factor').value
-        self.midfield_range = self.get_parameter('midfield_range').value
-        self.proximal_range = self.get_parameter('proximal_range').value
+        self.midfield_range = 1 - self.get_parameter('midfield_range').value
+        self.proximal_range = 1 - self.get_parameter('proximal_range').value
+        
+        # Program variables
+        self.prox_c_height = None  # Proximal cropped image height
+        self.prox_c_width = None   # Proximal cropped image width
+        self.mid_c_height = None   # Midrange cropped image height
+        self.mid_c_width = None    # Midrange cropped image width
+        
+        self.viewfield_dim_array = Int32MultiArray()
+        self.viewfield_dim_array.data = [[0, 0], [0, 0], [0, 0]]  # Initialize with zero dimensions
         
         # Subscriptions
         self.create_subscription(Image, self.get_parameter('camera_topic').value, self.img_cb, 10)
@@ -78,6 +87,7 @@ class LineRecogni(Node):
         # Data publishers
         self.line_recogni_prox_pub = self.create_publisher(Int32, 'line_recogni', 10)
         self.line_recogni_mid_pub = self.create_publisher(Int32MultiArray, 'line_recogni_mid', 10)
+        self.viewfield_dim_pub = self.create_publisher(Int32MultiArray, 'viewfield_dim', 10)
         
         # Running message
         self.logger.info("LineRecogni Initialized!")
@@ -124,6 +134,12 @@ class LineRecogni(Node):
         
         mid_image, mid_overlay_image, mid_centroid_x, mid_all_centroid_x = self.process_midrange_line(cv_preprocessed_fullframe, overlay_image)
         
+        # Calculate viewfield dimensions for all images
+        self.viewfield_dim_array.data = [
+            [cv_preprocessed_fullframe.shape[1], cv_preprocessed_fullframe.shape[0]],  # Full frame dimensions
+            [prox_image.shape[1], prox_image.shape[0]],  # Proximal cropped dimensions
+            [mid_image.shape[1], mid_image.shape[0]]  # Mid-range cropped dimensions
+        ]
         
         # Convert processed images back to ROS format
         mid_overlay_image = self.bridge.cv2_to_imgmsg(overlay_image, encoding='bgr8')
@@ -182,6 +198,8 @@ class LineRecogni(Node):
         
         # Cropped image dimensions
         c_height, c_width = image.shape[:2]
+        self.prox_c_height = c_height
+        self.prox_c_width = c_width
         
         # Find contours
         contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
