@@ -56,7 +56,8 @@ class LineRecogni(Node):
         # Logging level
         self.declare_parameter('log_severity', 'DEBUG')
         # Line detection parameters
-        # None
+        self.declare_parameter('midfield_range', 0.45)  # Midfield range as a fraction of the image height
+        self.declare_parameter('proximal_range', 0.85)  # Proximal range as a fraction of the image height
         # Personalization parameters
         self.declare_parameter('resolution_factor', 1)  # Factor to  scale resolution of the overlay 
         
@@ -65,6 +66,8 @@ class LineRecogni(Node):
         
         # Variables
         self.res_factor = self.get_parameter('resolution_factor').value
+        self.midfield_range = self.get_parameter('midfield_range').value
+        self.proximal_range = self.get_parameter('proximal_range').value
         
         # Subscriptions
         self.create_subscription(Image, self.get_parameter('camera_topic').value, self.img_cb, 10)
@@ -89,8 +92,12 @@ class LineRecogni(Node):
             elif param.name == 'resolution_factor':
                 self.res_factor = param.value
                 self.get_logger().info(f"Resolution factor set to {self.res_factor}")
-            elif param.name == 'camera_topic':
-                self.get_logger().info(f"Camera topic set to {param.value}")
+            elif param.name == 'midfield_range':
+                self.midfield_range = param.value
+                self.get_logger().info(f"Midfield range set to {self.midfield_range}")
+            elif param.name == 'proximal_range':
+                self.proximal_range = param.value
+                self.get_logger().info(f"Proximal range set to {self.proximal_range}")
         
         return SetParametersResult(successful=True)
     
@@ -170,7 +177,7 @@ class LineRecogni(Node):
         # Get overlay image dimensions
         o_height, o_width = overlay_image.shape[:2]
         # Crop the image (crop from top to bottom)
-        crop_height = int(height * 0.85)
+        crop_height = int(height * self.proximal_range)
         image = image[crop_height:, :] 
         
         # Cropped image dimensions
@@ -182,7 +189,6 @@ class LineRecogni(Node):
         # Condition to check if contours are found
         if not contours:
             self.get_logger().debug("No contours found", throttle_duration_sec=5.0)
-            #overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_GRAY2BGR)
             return image, overlay_image, None
         else:
             self.get_logger().debug("No valid moments; no line detected", throttle_duration_sec=5.0)
@@ -250,7 +256,7 @@ class LineRecogni(Node):
         # Get overlay image dimensions
         o_height, o_width = overlay_image.shape[:2]
         # Crop the image to focus on the mid-range
-        crop_height_top = int(height * 0.45)
+        crop_height_top = int(height * self.midfield_range)
         crop_height_bottom = int(height * 1.00)
         image = image[crop_height_top:crop_height_bottom, :]
         
@@ -263,7 +269,6 @@ class LineRecogni(Node):
         # Condition to check if contours are found
         if not contours:
             self.get_logger().debug("No contours found", throttle_duration_sec=5.0)
-            #overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_GRAY2BGR)
             return image, overlay_image, None
         else:
             self.get_logger().debug("No valid moments; no line detected", throttle_duration_sec=5.0)
