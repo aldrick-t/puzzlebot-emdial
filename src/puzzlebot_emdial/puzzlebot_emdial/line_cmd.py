@@ -1,11 +1,13 @@
 '''
 line_cmd.py
+Refactored for puzzlebot_emdial package.
 
 Line Command Node
 Node subscribes to LineRecogni topics and publishes commands based on line detection.
 
-aldrick-t
-MAY 2025
+Base by: aldrick-t
+Enhanced by: Team emdial
+JUN 2025
 '''
 
 import rclpy
@@ -14,7 +16,7 @@ import cv2
 import numpy as np
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from std_msgs.msg import Float32, Int32
+from std_msgs.msg import Float32, Int32, Int32MultiArray
 from rclpy.logging import LoggingSeverity
 from rcl_interfaces.msg import SetParametersResult
 
@@ -60,10 +62,12 @@ class LineCmd(Node):
         
         # Subscriptions
         # Image stream topic
-        self.create_subscription(Image, 'prox_overlay', self.img_cb, 10)
+        self.create_subscription(Image, 'lr_overlay', self.img_cb, 10)
         # Data stream topic
         self.create_subscription(Int32, 'line_recogni', self.line_cmd_cb, 10)
         self.create_subscription(Int32, 'line_recogni_mid', self.line_cmd_cb, 10)
+        # Image dimension topic
+        self.create_subscription(Int32MultiArray, 'viewfield_dim', self.process_source_image, 10)
         
         # Publishers
         # Line following interpreted command
@@ -94,7 +98,7 @@ class LineCmd(Node):
         self.width, self.center_x, self.null_thresh_l, self.null_thresh_r, img_overlay = self.process_source_image(self.img)
         # Publish thresh overlay image
         self.thresh_overlay_pub.publish(self.bridge.cv2_to_imgmsg(img_overlay, encoding='bgr8'))
-        
+      
         
     def line_cmd_cb(self, msg):
         '''
@@ -113,27 +117,31 @@ class LineCmd(Node):
             cmd_msg = 1.0 - cmd_msg
             cmd_msg *= -1.0
         elif cmd_msg < -1.1:
-            #self.get_logger().debug(f"AAAAAAAAAAAAAAAAAAAA: {cmd_msg}", throttle_duration_sec=1.0)
             cmd_msg += int(cmd_msg) * -1.0
-            #self.get_logger().debug(f"BBBBBBBBBBBBBBBBBBBBB: {cmd_msg}", throttle_duration_sec=1.0)
             cmd_msg = 1.0 + cmd_msg
-            #self.get_logger().debug(f"CCCCCCCCCCCCCCCCCCCCCCCCC: {cmd_msg}", throttle_duration_sec=1.0)
-            #cmd_msg *= -1.0
-        #self.get_logger().debug("SEXOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO", throttle_duration_sec=1.0)
         cmd_msg_t = Float32()
         cmd_msg_t.data = cmd_msg
-        self.line_cmd_pub.publish(cmd_msg_t)
+        self.line_cmd_pub.publish(cmd_msg_t)     
         
-        
-        
-    def process_source_image(self, img):
+    def process_source_image(self, msg):
         '''
         Process the source image to extract information
         '''
         # Get image dimensions
-        height, width = img.shape[:2]
-        # Calculate center of the image
-        center_x = width // 2
+        dim_array = np.array(msg.data)
+        # Extract full frame dimensions
+        fullframe_dims = dim_array[0]
+        full_height, full_width = fullframe_dims[0], fullframe_dims[1]
+        # Extract proximal frame dimensions
+        proximal_dims = dim_array[1]
+        proximal_height, proximal_width = proximal_dims[0], proximal_dims[1]
+        # Extract midrange frame dimensions
+        midrange_dims = dim_array[2]
+        midrange_height, midrange_width = midrange_dims[0], midrange_dims[1]
+        
+        # calculate center of the image
+        center_x = full_width // 2
+        
         # Calculate null thresholds
         # Define null thresholds as a percentage of the image width
         # null_thresh_l: % from the left edge of the image
@@ -142,10 +150,7 @@ class LineCmd(Node):
         null_thresh_r = int(center_x * 1.02)
         
         # Add to overlay image
-        cv2.line(img, (null_thresh_l, 0), (null_thresh_l, height), (255, 0, 100), 3)
-        cv2.line(img, (null_thresh_r, 0), (null_thresh_r, height), (255, 0, 100), 3)
-        
-        return width, center_x, null_thresh_l, null_thresh_r, img
+        return full_width, center_x, null_thresh_l, null_thresh_r
         
         
     def process_line_cmd(self, process_img_data, line_recogni_data):
@@ -175,6 +180,20 @@ class LineCmd(Node):
         self.get_logger().debug(f"Line command: {cmd_msg.data}", throttle_duration_sec=20.0)
         
         return cmd_msg
+    
+    def process_largefield(self, midfield_img):
+        '''
+        Process the large field image to extract information
+        '''
+        # Get image dimensions
+        height, width = midfield_img.shape[:2]
+        # Calculate center of the image
+        center_x = width // 2
+        
+        
+        
+    def process_cross(self):
+        pass
         
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')

@@ -1,11 +1,13 @@
 '''
 trafficsignal_detector.py
+Refactored for puzzlebot_emdial package.
 
 Detects traffic signs and traffic lights using a YOLOv8 model and publishes the detected color.
 This script subscribes to a camera feed, processes the images to detect traffic lights, signs,
 and publishes the detected color (red, yellow, green, or none) to a ROS topic. 
 As well as detected traffic signs on another topic.
 
+Built by: emdial
 MAY 2025
 '''
 

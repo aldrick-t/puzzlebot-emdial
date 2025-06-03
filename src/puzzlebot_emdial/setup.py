@@ -20,7 +20,13 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'puzzlebot_emdial = puzzlebot_emdial.puzzlebot_emdial:main'
+            'line_recogni = puzzlebot_emdial.line_recogni:main',
+            'tlts_detector = puzzlebot_emdial.tlts_detector:main',
+            'line_cmd = puzzlebot_emdial.line_cmd:main',
+            'robot_ctrl = puzzlebot_emdial.robot_ctrl:main',
+            'odometry_node = puzzlebot_emdial.odometry_node:main',
+            'plotter_monitor = puzzlebot_emdial.plotter_monitor:main',
+            'visual_monitor = puzzlebot_emdial.visual_monitor:main',
         ],
     },
 )
