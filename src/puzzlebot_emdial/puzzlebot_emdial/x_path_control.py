@@ -15,6 +15,13 @@ from geometry_msgs.msg import Twist
 import numpy as np
 import signal # To handle Ctrl+C
 import sys # To exit the program
+from std_msgs.msg import String
+
+
+path_left = [0.23, 0.0, 0.25,0.23]
+path_right = [0.23, 0.0, 0.25, -0.23]
+path_straight = [0.46, 0.0]
+
 
 class pathControl(Node):
     def __init__(self):
@@ -22,9 +29,11 @@ class pathControl(Node):
         self.wait_for_ros_time()
 
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
-        self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
+        #self.next_goal_pub = self.create_publisher(Empty, 'next_goal', 10)
         self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
-        self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
+        self.cross_status_sub = self.create_subscription(String, 'cross_status', self.cross_status_cb, 10) # Subscribe to cross pose for debugging
+        self.cross_delta_sub = self.create_subscription(String, 'cross_delta_y', self.cross_delta_cb, 10)
+        #self.goal_sub = self.create_subscription(Pose2D, 'goal', self.goal_cb, 10)
         
         # Handle shutdown gracefully
         signal.signal(signal.SIGINT, self.shutdown_function) # When Ctrl+C is pressed, call self.shutdown_function
@@ -40,7 +49,7 @@ class pathControl(Node):
 
         self.add_on_set_parameters_callback(self.parameter_callback)
 
-        self.goal_received = False
+        #self.goal_received = False
         self.xg = 0.0 # Goal position x[m]
         self.yg = 0.0 # Goal position y[m]
 
