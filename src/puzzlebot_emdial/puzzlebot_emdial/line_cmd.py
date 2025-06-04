@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from std_msgs.msg import Float32, Int32, Int32MultiArray
+from std_msgs.msg import Float32, Int32, Int32MultiArray, String
 from rclpy.logging import LoggingSeverity
 from rcl_interfaces.msg import SetParametersResult
 
@@ -54,26 +54,28 @@ class LineCmd(Node):
         # Logging level
         self.declare_parameter('log_severity', 'DEBUG')
         
-        # Header vars
-        self.img = None
+        # Flags
+        self.cross_in_fov = False
+        self.cross_in_prox = False
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
         
         # Subscriptions
         # Image stream topic
-        self.create_subscription(Image, 'lr_overlay', self.img_cb, 10)
+        # self.create_subscription(Image, 'lr_overlay', self.img_cb, 10)
         # Data stream topic
         self.create_subscription(Int32, 'line_recogni', self.line_cmd_cb, 10)
-        self.create_subscription(Int32, 'line_recogni_mid', self.line_cmd_cb, 10)
+        self.create_subscription(Int32MultiArray, 'line_recogni_mid_cx', self.lr_mid_cx_cb, 10)
+        self.create_subscription(Int32MultiArray, 'line_recogni_mid_cy', self.lr_mid_cy_cb, 10)
         # Image dimension topic
-        self.create_subscription(Int32MultiArray, 'viewfield_dim', self.process_source_image, 10)
+        self.create_subscription(Int32MultiArray, 'viewfield_dim', self.process_sources, 10)
         
         # Publishers
         # Line following interpreted command
         self.line_cmd_pub = self.create_publisher(Float32, 'line_cmd', 10)
-        # Image publishers
-        self.thresh_overlay_pub = self.create_publisher(Image, 'thresh_overlay', 10)
+        # cross detection command
+        self.cross_detect_pub = self.create_publisher(String, 'cross_detect', 10)
         
         # Running message
         self.logger.info("LineRecogni Initialized!")
@@ -88,17 +90,19 @@ class LineCmd(Node):
         
         return SetParametersResult(successful=True)
     
-    def img_cb(self, msg):
+    def lr_mid_cx_cb(self, msg):
         '''
-        Callback function for camera image topic
+        Callback function for midrange line recognition topic
         '''
-        # Convert ROS Image message to OpenCV image
-        self.img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        # Process source image data
-        self.width, self.center_x, self.null_thresh_l, self.null_thresh_r, img_overlay = self.process_source_image(self.img)
-        # Publish thresh overlay image
-        self.thresh_overlay_pub.publish(self.bridge.cv2_to_imgmsg(img_overlay, encoding='bgr8'))
-      
+        # Parse message data
+        self.cx_array = np.array(msg.data)
+    
+    def lr_mid_cy_cb(self, msg):
+        '''
+        Callback function for midrange line recognition topic
+        '''
+        # Parse message data
+        self.cy_array = np.array(msg.data)
         
     def line_cmd_cb(self, msg):
         '''
@@ -121,9 +125,10 @@ class LineCmd(Node):
             cmd_msg = 1.0 + cmd_msg
         cmd_msg_t = Float32()
         cmd_msg_t.data = cmd_msg
-        self.line_cmd_pub.publish(cmd_msg_t)     
+        self.line_cmd_pub.publish(cmd_msg_t)
+        self.publish  
         
-    def process_source_image(self, msg):
+    def process_sources(self, msg):
         '''
         Process the source image to extract information
         '''
@@ -180,21 +185,57 @@ class LineCmd(Node):
         self.get_logger().debug(f"Line command: {cmd_msg.data}", throttle_duration_sec=20.0)
         
         return cmd_msg
+        
+    def process_cross(self, ):
+        '''
+        Detection verification for crossing lines
+        '''
+        cross_msg = String()
+        
+        # Check number of centroids detected
+        if len(self.cx_array) > 3:
+            # More than 3 centroids detected, likely a crossing
+            self.get_logger().info("Crossing detected!")
+            # Set flag for crossing detection
+            self.cross_in_fov = True
+            # Publish crossing message
+            cross_msg.data = "approach"
+            self.cross_detect_pub.publish(cross_msg)
+        else:
+            # Less than 3 centroids detected, not a crossing
+            if self.cross_in_fov:
+                # Set flag for close crossing detection
+                self.get_logger().info("Crossing no longer in FOV.")
+                self.cross_in_prox = True
+                # Publish crossing message
+                cross_msg.data = "xing"
+                self.cross_detect_pub.publish(cross_msg)
+            else:
+                # No crossing detected
+                self.get_logger().info("No crossing detected.")
+                # Reset flags
+                self.cross_in_prox = False
+                self.cross_in_fov = False
+                # Publish crossing message
+                cross_msg.data = "none"
+                self.cross_detect_pub.publish(cross_msg)
+            self.cross_in_fov = False
+            
+            
+    def calculate_delta_y(self, cy_array):
+        '''
+        Calculate the average delta y between centroids in the cy_array
+        '''
+        if len(cy_array) < 3:
+            return 0.0
+        
+        # Calculate deltas
+        deltas = np.diff(cy_array)
+        # Calculate average delta
+        avg_delta_y = np.mean(deltas)
+        
+        return avg_delta_y
     
-    def process_largefield(self, midfield_img):
-        '''
-        Process the large field image to extract information
-        '''
-        # Get image dimensions
-        height, width = midfield_img.shape[:2]
-        # Calculate center of the image
-        center_x = width // 2
-        
-        
-        
-    def process_cross(self):
-        pass
-        
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')
         while rclpy.ok():
