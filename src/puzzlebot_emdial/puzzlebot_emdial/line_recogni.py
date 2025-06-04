@@ -50,7 +50,7 @@ class LineRecogni(Node):
     
         # Parameters immutable after startup sequence
         # Video source (determined by launch mode)
-        self.declare_parameter('camera_topic', 'camera')
+        self.declare_parameter('camera_topic', 'video_source/raw')
         
         # Dynamic parameters
         # Logging level
@@ -58,6 +58,7 @@ class LineRecogni(Node):
         # Line detection parameters
         self.declare_parameter('midfield_range', 0.55)  # Midfield range as a fraction of the image height
         self.declare_parameter('proximal_range', 0.07)  # Proximal range as a fraction of the image height
+        self.declare_parameter('bin_thresh', 80) # Threshold for the binary cutoff thresh
         # Personalization parameters
         self.declare_parameter('resolution_factor', 1)  # Factor to  scale resolution of the overlay 
         
@@ -68,6 +69,7 @@ class LineRecogni(Node):
         self.res_factor = self.get_parameter('resolution_factor').value
         self.midfield_range = 1 - self.get_parameter('midfield_range').value
         self.proximal_range = 1 - self.get_parameter('proximal_range').value
+        self.bin_thresh = self.get_parameter('bin_thresh').value
         
         # Program variables
         self.prox_c_height = None  # Proximal cropped image height
@@ -76,7 +78,7 @@ class LineRecogni(Node):
         self.mid_c_width = None    # Midrange cropped image width
         
         self.viewfield_dim_array = Int32MultiArray()
-        self.viewfield_dim_array.data = [[0, 0], [0, 0], [0, 0]]  # Initialize with zero dimensions
+        self.viewfield_dim_array.data = [0,0, 0,0, 0,0]  # Initialize with zero dimensions
         
         # Subscriptions
         self.create_subscription(Image, self.get_parameter('camera_topic').value, self.img_cb, 10)
@@ -86,7 +88,9 @@ class LineRecogni(Node):
         self.prox_overlay_pub = self.create_publisher(Image, 'lr_overlay', 10)
         # Data publishers
         self.line_recogni_prox_pub = self.create_publisher(Int32, 'line_recogni', 10)
-        self.line_recogni_mid_pub = self.create_publisher(Int32MultiArray, 'line_recogni_mid', 10)
+        self.line_recogni_mid_cx_pub = self.create_publisher(Int32MultiArray, 'line_recogni_mid_cx', 10)
+        self.line_recogni_mid_cy_pub = self.create_publisher(Int32MultiArray, 'line_recogni_mid_cy', 10)
+        # Viewfield dimensions publisher
         self.viewfield_dim_pub = self.create_publisher(Int32MultiArray, 'viewfield_dim', 10)
         
         # Running message
@@ -108,6 +112,9 @@ class LineRecogni(Node):
             elif param.name == 'proximal_range':
                 self.proximal_range = param.value
                 self.get_logger().info(f"Proximal range set to {self.proximal_range}")
+            elif param.name == 'bin_thresh':
+                self.bin_thresh = param.value
+                self.get_logger().info(f"Bin. threshold set to {self.bin_thresh}")
         
         return SetParametersResult(successful=True)
     
@@ -118,6 +125,7 @@ class LineRecogni(Node):
         prox_cx_msgInt = Int32()
         
         mid_all_cx_msgIntArray = Int32MultiArray()
+        mid_all_cy_msgIntArray = Int32MultiArray()
         
         # Convert ROS image to OpenCV format
         cv_raw = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -132,13 +140,16 @@ class LineRecogni(Node):
         
         overlay_image = prox_overlay_image.copy()
         
-        mid_image, mid_overlay_image, mid_centroid_x, mid_all_centroid_x = self.process_midrange_line(cv_preprocessed_fullframe, overlay_image)
+        mid_image, mid_overlay_image, mid_centroid_x, mid_all_cx, mid_all_cy = self.process_midrange_line(cv_preprocessed_fullframe, overlay_image)
         
         # Calculate viewfield dimensions for all images
         self.viewfield_dim_array.data = [
-            [cv_preprocessed_fullframe.shape[1], cv_preprocessed_fullframe.shape[0]],  # Full frame dimensions
-            [prox_image.shape[1], prox_image.shape[0]],  # Proximal cropped dimensions
-            [mid_image.shape[1], mid_image.shape[0]]  # Mid-range cropped dimensions
+            cv_raw.shape[0],  # Original image height
+            cv_raw.shape[1],  # Original image width
+            prox_image.shape[0],  # Proximal cropped image height
+            prox_image.shape[1],  # Proximal cropped image width
+            mid_image.shape[0],  # Mid-range cropped image height
+            mid_image.shape[1]   # Mid-range cropped image width
         ]
         
         # Convert processed images back to ROS format
@@ -157,13 +168,21 @@ class LineRecogni(Node):
         self.line_recogni_prox_pub.publish(prox_cx_msgInt)
         
         # Publish the mid-range centroid x coordinates
-        if mid_all_centroid_x is None:
+        if mid_all_cx is None:
             #self.get_logger().debug("No mid-range line detected; publishing None", throttle_duration_sec=2.0)
             mid_all_cx_msgIntArray.data = []
         else:
             #self.get_logger().debug(f"Mid-range line detected; centroids: {mid_all_centroid_x}", throttle_duration_sec=2.0)
-            mid_all_cx_msgIntArray.data = [int(x) for x in mid_all_centroid_x]
-        self.line_recogni_mid_pub.publish(mid_all_cx_msgIntArray)
+            mid_all_cx_msgIntArray.data = [int(x) for x in mid_all_cx]
+        self.line_recogni_mid_cx_pub.publish(mid_all_cx_msgIntArray)
+        # Publish the mid-range centroid y coordinates
+        if mid_all_cy is None:
+            #self.get_logger().debug("No mid-range line detected; publishing None", throttle_duration_sec=2.0)
+            mid_all_cy_msgIntArray.data = []
+        else:
+            #self.get_logger().debug(f"Mid-range line detected; centroids: {mid_all_centroid_y}", throttle_duration_sec=2.0)
+            mid_all_cy_msgIntArray.data = [int(y) for y in mid_all_cy]
+        self.line_recogni_mid_cy_pub.publish(mid_all_cy_msgIntArray)
             
         
     def preprocess_fullframe(self, image):
@@ -179,7 +198,19 @@ class LineRecogni(Node):
         
         # Fixed binary thresholding (inverted for contour detection)
         # Parameters: cv2.threshold(src, thresh, maxval, type)
-        _, image = cv2.threshold(image, 80, 255, cv2.THRESH_BINARY_INV)
+        _, image = cv2.threshold(image, self.bin_thresh, 255, cv2.THRESH_BINARY_INV)
+        
+        # Morphological Ops
+        # Apply morphological operations to remove noise
+        kernel5 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        kernel3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        image = cv2.morphologyEx(image, cv2.MORPH_ERODE, kernel3, iterations=1)
+        image = cv2.morphologyEx(image, cv2.MORPH_ERODE, kernel2, iterations=1)
+        image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel5, iterations=1)
+        #image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel2)
+        # image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+        
         
         return image
  
@@ -276,6 +307,8 @@ class LineRecogni(Node):
         # Crop the image to focus on the mid-range
         crop_height_top = int(height * self.midfield_range)
         crop_height_bottom = int(height * 1.00)
+        # Crop Sides
+        # crop_width_left
         image = image[crop_height_top:crop_height_bottom, :]
         
         # Cropped image dimensions
@@ -287,7 +320,7 @@ class LineRecogni(Node):
         # Condition to check if contours are found
         if not contours:
             self.get_logger().debug("No contours found", throttle_duration_sec=5.0)
-            return image, overlay_image, None
+            return image, overlay_image, None, None, None
         else:
             self.get_logger().debug("No valid moments; no line detected", throttle_duration_sec=5.0)
             cx, cy = None, None
@@ -303,7 +336,7 @@ class LineRecogni(Node):
         valid_moments = [m for m in moments if m["m00"] != 0]
         if not valid_moments:
             self.get_logger().debug("No valid moments; no line detected", throttle_duration_sec=5.0)
-            return image, overlay_image, None
+            return image, overlay_image, None, None, None
         
         # Calculate centroid for all valid contours
         centroids = [(int(m["m10"] / m["m00"]), int(m["m01"] / m["m00"])) for m in valid_moments]
@@ -328,11 +361,16 @@ class LineRecogni(Node):
         
         # Parse all centroid coordinates into a list
         # Only valid centroids are considered
-        # Isolating only the x-coordinates for line following, y-coordinates are ignored
+        # Isolating only the x-coordinates for line following
         # If no valid contours, cx will be None
         cx_all = [c[0] for c in centroids if c[0] is not None]
         if not cx_all:
-            return image, overlay_image, None, None
+            return image, overlay_image, None, None, None
+        
+        # Parse all y-coordinates for centroids
+        cy_all = [c[1] for c in centroids if c[1] is not None]
+        if not cy_all:
+            return image, overlay_image, None, None, None
         
         # Draw Overlay
         
@@ -373,7 +411,7 @@ class LineRecogni(Node):
         cv2.line(overlay_image, (0, crop_height_top), (o_width, crop_height_top), (255, 0, 0), self.res_factor)
         cv2.line(overlay_image, (0, crop_height_bottom), (o_width, crop_height_bottom), (255, 0, 0), self.res_factor)
         
-        return image, overlay_image, cx, cx_all
+        return image, overlay_image, cx, cx_all, cy_all
     
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')
