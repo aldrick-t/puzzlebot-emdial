@@ -118,7 +118,6 @@ class RobotCtrl(Node):
         self.tl_yellow = False
         self.tl_green = False
         self.moving = False
-        self.first = True
         #--------------------------------------------------
         #Paths and TS
         self.ts_left = False
@@ -477,36 +476,23 @@ class RobotCtrl(Node):
         Control system function
         Processes line command and traffic light data to generate control vel command
         '''
-        #Timer init
-        if self.first:
-            self.error_w = line_cmd
-            self.first = False
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now 
-        down_l = False
-        down_r = False
-        dif = abs(self.error_w-line_cmd)
-        if dif > 0.6:
-            if (self.error_w+line_cmd) > 0.0:
-                down_l = True
-            else:
-                down_r = True
         
         # Lost Line detection and recovery
         # Check if line is lost, indicated by a command >= abs(1)
-        if line_cmd <= -1 or down_l :
+        if line_cmd <= -1 :
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, 0.3  #
-        elif line_cmd >= 1 or down_r:
+        elif line_cmd >= 1:
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, -0.3
         
-        # Initialize vars
-        if not down_l or down_r:
-            self.error_w = line_cmd
+        # Initialize variables
+        self.error_w = line_cmd
         
         # Calculate velocity based on angular error
         if abs(self.error_w) > self.curve_detect_thresh:
