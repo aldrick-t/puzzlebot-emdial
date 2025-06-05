@@ -118,21 +118,20 @@ class RobotCtrl(Node):
         self.tl_yellow = False
         self.tl_green = False
         self.moving = False
-        self.first = True
         #--------------------------------------------------
         #Paths and TS
         self.ts_left = False
-        self.ts_right = True
-        self.ts_straight = False
+        self.ts_right = False
+        self.ts_straight = True
 
         self.goal_received = False
         self.current_goal_index = -1
 
-        self.path_left = [(0.23, 0.0), (0.25, 0.23)]
-        self.path_right = [(0.23, 0.0), (0.25, -0.23)]
-        self.path_straight = [(0.46, 0.0)]
+        self.path_left = [0.23, 0.0, 0.25, 0.23]
+        self.path_right = [0.23, 0.0, 0.25, -0.23]
+        self.path_straight = [0.46, 0.0]
 
-        self.path = self.ts_straight
+        self.path = self.path_left
 
         # Cross
         self.aproach = False
@@ -332,7 +331,7 @@ class RobotCtrl(Node):
             ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
 
             # Goal Threshold
-            if ed < 0.1: #Threshold value (tolerance) for goal reached in meters.
+            if ed < 0.05: #Threshold value (tolerance) for goal reached in meters.
                 self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
                 self.get_logger().debug(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
                 self.get_logger().debug(f"Current theta: {self.theta_r:.2f}")
@@ -342,17 +341,18 @@ class RobotCtrl(Node):
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.goal_received = False
+                self.current_goal_index +=2
             else:
                 self.cmd_vel.linear.x = 0.2 * ed
                 #limit the linear velocity to a maximum of 0.5 m/s
-                if self.cmd_vel.linear.x > 0.5:
-                    self.cmd_vel.linear.x = 0.5
+                if self.cmd_vel.linear.x > 0.2:
+                    self.cmd_vel.linear.x = 0.2
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
-                if self.cmd_vel.linear.x > 0.5:
-                    self.get_logger().warn(f"Linear velocity above safe limit: {self.cmd_vel.linear.x:.2f} m/s")
+
                 self.cmd_vel.angular.z = 1.2 * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-                if self.cmd_vel.angular.z > 1.5:
+                if self.cmd_vel.angular.z > 1.2:
+                    self.cmd_vel.angular.z = 1.2
                     self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
 
             self.cmd_vel_pub.publish(self.cmd_vel)
@@ -476,36 +476,23 @@ class RobotCtrl(Node):
         Control system function
         Processes line command and traffic light data to generate control vel command
         '''
-        #Timer init
-        if self.first:
-            self.error_w = line_cmd
-            self.first = False
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now 
-        down_l = False
-        down_r = False
-        dif = abs(self.error_w-line_cmd)
-        if dif > 0.6:
-            if (self.error_w+line_cmd) > 0.0:
-                down_l = True
-            else:
-                down_r = True
         
         # Lost Line detection and recovery
         # Check if line is lost, indicated by a command >= abs(1)
-        if line_cmd <= -1 or down_l :
+        if line_cmd <= -1 :
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, 0.3  #
-        elif line_cmd >= 1 or down_r:
+        elif line_cmd >= 1:
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, -0.3
         
-        # Initialize vars
-        if not down_l or down_r:
-            self.error_w = line_cmd
+        # Initialize variables
+        self.error_w = line_cmd
         
         # Calculate velocity based on angular error
         if abs(self.error_w) > self.curve_detect_thresh:
