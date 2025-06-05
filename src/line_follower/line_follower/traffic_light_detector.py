@@ -1,14 +1,3 @@
-'''
-traffic_light_detector.py
-
-Detects traffic light colors using a YOLOv8 model and publishes the detected color.
-
-This script subscribes to a camera feed, processes the images to detect traffic lights,
-and publishes the detected color (red, yellow, green, or none) to a ROS topic.
-
-MAY 2025
-'''
-
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image

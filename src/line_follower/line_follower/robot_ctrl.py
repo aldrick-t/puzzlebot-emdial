@@ -7,19 +7,19 @@ General-use node for multiple applications.
 Accepts commands from multiple sources, format must be float from -1.0 to 1.0.
 Accepts variable control commands and data inputs.
 
-emdial
+
+aldrick-t
 MAY 2025
 '''
 import rclpy
 from rclpy.node import Node
 import numpy as np
 #from cv_bridge import CvBridge
-from std_msgs.msg import Float32, String, Int32
-from geometry_msgs.msg import Twist, Pose2D
+from std_msgs.msg import Float32, String
+from geometry_msgs.msg import Twist
 from rclpy.logging import LoggingSeverity
 from rcl_interfaces.msg import SetParametersResult
 import time
-
 
 class RobotCtrl(Node):
     '''
@@ -34,6 +34,8 @@ class RobotCtrl(Node):
     
     def __init__(self):
         super().__init__('robot_ctrl')
+        #self.bridge = CvBridge()
+        
         self.wait_for_ros_time()
         
         # Logger initialization 
@@ -48,6 +50,7 @@ class RobotCtrl(Node):
 
         # Parameters immutable after startup sequence
         # None
+        
         # Dynamic parameters
         # Logging level
         self.declare_parameter('log_severity', 'DEBUG')
@@ -59,11 +62,11 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_v', 0.0)
         self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 0.9) #2.0    #1.4
+        self.declare_parameter('Kp_w', 0.85) #2.0    #1.4
         self.declare_parameter('Ki_w', 0.1) #1.2    #1.9
-        self.declare_parameter('Kd_w', 0.005) #0.5   #0.09
+        self.declare_parameter('Kd_w', 0.007) #0.5   #0.09
         # Max speed dynamic parameters
-        self.declare_parameter('v_limit', 0.25)
+        self.declare_parameter('v_limit', 0.45)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
         self.declare_parameter('v_limit_slow', 0.2)
@@ -72,7 +75,7 @@ class RobotCtrl(Node):
         self.declare_parameter('v_limit_max', 0.7)
         self.declare_parameter('w_limit_max', 1.8)
         # Bend minimum speeds
-        self.declare_parameter('v_limit_min', 0.1)
+        self.declare_parameter('v_limit_min', 0.15)
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
@@ -118,43 +121,12 @@ class RobotCtrl(Node):
         self.tl_yellow = False
         self.tl_green = False
         self.moving = False
-        #--------------------------------------------------
-        #Paths and TS
-        self.ts_left = False
-        self.ts_right = False
-        self.ts_straight = True
-
-        self.goal_received = False
-        self.current_goal_index = -1
-
-        self.path_left = [0.23, 0.0, 0.25, 0.23]
-        self.path_right = [0.23, 0.0, 0.25, -0.23]
-        self.path_straight = [0.46, 0.0]
-
-        self.path = self.path_left
-
-        # Cross
-        self.aproach = False
-        self.xing = False
-        self.no_cross = False
-
-        self.centroid_delta = 120
-
-        self.xg = 0.0 # Goal position x[m]
-        self.yg = 0.0 # Goal position y[m]
-        #--------------------------------------------------
-
         # Subscriptions
         # line command sub
         self.create_subscription(Float32, self.get_parameter('cmd_input_topic').value, self.line_cmd_cb, 10)
         # Traffic light data sub
         self.create_subscription(String, 'traffic_light_color', self.traffic_light_cb, 10)
-        # Cross status
-        self.cross_status_sub = self.create_subscription(String, 'cross_status', self.cross_status_cb, 10)
-        # Zebra centroids y delta
-        self.cross_delta_sub = self.create_subscription(Int32, 'cross_delta_y', self.cross_delta_cb, 10)
-        # Odometry calculated Pose
-        self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
+        
         # Publishers
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         
@@ -170,7 +142,6 @@ class RobotCtrl(Node):
         
         # Running message
         self.logger.info("RobotCtrl Initialized!")
-
         
     def parameter_callback(self, params):
         for param in params:
@@ -230,7 +201,6 @@ class RobotCtrl(Node):
                 
         return SetParametersResult(successful=True)
     
-
     def line_cmd_cb(self, msg):
         '''
         Callback function for line command input
@@ -239,129 +209,6 @@ class RobotCtrl(Node):
         
         self.line_cmd_received = True  # Set flag when message is received
         self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=1.0)
-    
-
-    def cross_status_cb(self, msg):
-        '''
-        Callback function for cross status
-        '''
-        if (msg.data =='xing'):
-            self.xing = True
-        elif (msg.data == 'approach'):
-            self.aproach = True
-        elif (msg.data == 'none'):
-            self.none == True
-        else:
-            pass
-        
-        self.get_logger().debug(f"RECEIVED CORSS command: {msg.data}", throttle_duration_sec=1.0)
-    
-
-    def cross_delta_cb(self, msg):
-        '''
-        Callback function for delta y
-        '''
-        if self.xing == True: 
-            self.centroid_delta = msg.data
-            self.get_logger().debug(f"RECEIVED Zebra Delta: {self.centroid_delta}", throttle_duration_sec=1.0)
-        else:
-            pass
-    
-
-    def get_errors(self, xr, yr, xg, yg, theta_r):
-        ## This function computes the errors in x and y
-        # Compute the distance to the goal
-        ed = np.sqrt((xg - xr)**2 + (yg - yr)**2)
-        # Compute the angle to the goal
-        thetag = np.arctan2(yg - yr, xg - xr)
-        etheta = thetag - theta_r
-        # Normalize the angle to be between -pi and pi
-        etheta = np.arctan2(np.sin(etheta), np.cos(etheta))
-        # Debug prints
-        self.get_logger().debug(f"Distance to goal: {ed:.2f} m")
-        self.get_logger().debug(f"Angle to goal: {etheta:.2f} rad")
-        return ed, etheta
-
-
-    def pose_cb(self, pose): 
-        ## This function receives the /pose from the odometry_node
-        self.xr = pose.x
-        self.yr = pose.y
-        self.theta_r = pose.theta
-
-
-    def start_path(self, path):
-        self.path = path
-        self.current_goal_index = 0
-        
-
-    def give_point(self):
-        if self.current_goal_index + 1 >= len(self.path):
-            self.get_logger().info('Reached end of path, no more points.')
-            self.xing = False
-            self.current_goal_index = -1
-        else:
-            self.xg = self.path[self.current_goal_index] # Goal position x[m]
-            self.yg = self.path[self.current_goal_index + 1] # Goal position y[m]
-            self.goal_received = True
-        
-
-    def odometry(self):
-        # Start the selected path only if no goal is active yet
-        if not self.goal_received and self.current_goal_index < 0:
-            if self.ts_left:
-                self.get_logger().info("Left path selected.")
-                self.start_path(self.path_left)
-                self.ts_left = False  # Reset flag to prevent re-triggering
-
-            elif self.ts_right:
-                self.get_logger().info("Right path selected.")
-                self.start_path(self.path_right)
-                self.ts_right = False
-
-            elif self.ts_straight:
-                self.get_logger().info("Straight path selected.")
-                self.start_path(self.path_straight)
-                self.ts_straight = False
-        if not self.goal_received:
-            self.give_point()
-
-        # Now continue path following if a goal was received
-        if self.goal_received:
-            ed, etheta = self.get_errors(self.xr, self.yr, self.xg, self.yg, self.theta_r)
-
-            # Goal Threshold
-            if ed < 0.05: #Threshold value (tolerance) for goal reached in meters.
-                self.get_logger().info(f"Goal reached : x={self.xg:.2f}, y={self.yg:.2f}")
-                self.get_logger().debug(f"Current pose : x={self.xr:.2f}, y={self.yr:.2f}")
-                self.get_logger().debug(f"Current theta: {self.theta_r:.2f}")
-                self.get_logger().debug(f"Within thresh: {ed:.2f} m")
-                self.get_logger().debug(f"Goal received: {self.goal_received}")
-                self.get_logger().debug("Requested next goal")
-                self.cmd_vel.linear.x = 0.0
-                self.cmd_vel.angular.z = 0.0
-                self.goal_received = False
-                self.current_goal_index +=2
-            else:
-                self.cmd_vel.linear.x = 0.2 * ed
-                #limit the linear velocity to a maximum of 0.5 m/s
-                if self.cmd_vel.linear.x > 0.2:
-                    self.cmd_vel.linear.x = 0.2
-                self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
-
-                self.cmd_vel.angular.z = 1.2 * etheta
-                self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
-                if self.cmd_vel.angular.z > 1.2:
-                    self.cmd_vel.angular.z = 1.2
-                    self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
-
-            self.cmd_vel_pub.publish(self.cmd_vel)
-        else: 
-            self.get_logger().info("Waiting for goal")
-            self.get_logger().debug(f"Goal received: {self.goal_received}")
-        
-
-
         
     def traffic_light_cb(self, msg):
         """
@@ -415,19 +262,6 @@ class RobotCtrl(Node):
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
             return
-        
-        if self.xing and self.aproach:
-            #Stop motors before odometry
-            self.cmd_vel.linear.x = 0.0
-            self.cmd_vel.angular.z = 0.0
-            self.cmd_vel_pub.publish(self.cmd_vel)
-            self.aproach = False
-            return
-        
-        if self.xing:
-            self.odometry()
-            return
-
 
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
@@ -451,7 +285,12 @@ class RobotCtrl(Node):
         # Traffic detection enabled: apply traffic light logic
         if self.tl_red:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
-            self.soft_stop()
+            # self.soft_stop()
+            v = 0.0
+            w = 0.0
+            self.cmd_vel.linear.x = v
+            self.cmd_vel.angular.z = -w
+            self.cmd_vel_pub.publish(self.cmd_vel)
             return
         elif self.tl_yellow:
             self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
@@ -476,6 +315,7 @@ class RobotCtrl(Node):
         Control system function
         Processes line command and traffic light data to generate control vel command
         '''
+        
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now 
@@ -486,13 +326,14 @@ class RobotCtrl(Node):
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, 0.3  #
-        elif line_cmd >= 1:
+        elif line_cmd >= 1 :
              self.get_logger().debug("Lost line detected, spinning to search for the line")
              # Spin in place: zero linear velocity and fixed turning speed.
              return 0.0, -0.3
         
-        # Initialize variables
-        self.error_w = line_cmd
+        self.error_w = line_cmd  # Use line_cmd directly as angular errorS
+        self.get_logger().debug(f"Angular error: {self.error_w}", throttle_duration_sec=1.0)
+        
         
         # Calculate velocity based on angular error
         if abs(self.error_w) > self.curve_detect_thresh:
