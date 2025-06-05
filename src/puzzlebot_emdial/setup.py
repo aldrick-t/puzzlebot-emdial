@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+from glob import glob
 
 package_name = 'puzzlebot_emdial'
 
@@ -10,6 +11,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', glob('launch/*.py')),
+        ('share/' + package_name + '/config', glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -27,6 +30,9 @@ setup(
             'odometry_node = puzzlebot_emdial.odometry_node:main',
             'plotter_monitor = puzzlebot_emdial.plotter_monitor:main',
             'visual_monitor = puzzlebot_emdial.visual_monitor:main',
+            'x_odometry_node = puzzlebot_emdial.x_odometry_node:main',
+            'x_path_control = puzzlebot_emdial.x_path_control:main',
+            'x_path_generator = puzzlebot_emdial.x_path_generator:main',
         ],
     },
 )

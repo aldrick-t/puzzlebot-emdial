@@ -5,7 +5,7 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     # Get package directory
-    package_directory = get_package_share_directory('mc2_motioncontrol')
+    package_directory = get_package_share_directory('puzzlebot_emdial')
 
         # Load the parameters from the YAML file
     config = os.path.join(
@@ -14,29 +14,29 @@ def generate_launch_description():
         'path_params.yaml'
     )
 
-    path_generator = Node(
-            package='mc2_motioncontrol',
-            executable='path_generator',
-            name='path_generator',
+    x_path_generator = Node(
+            package='puzzlebot_emdial',
+            executable='x_path_generator',
+            name='x_path_generator',
             parameters=[{'use_sim_time': False}, config],
         )
 
-    path_control = Node(
-            package='mc2_motioncontrol',
-            executable='path_control',
-            name='path_control',
+    x_path_control = Node(
+            package='puzzlebot_emdial',
+            executable='x_path_control',
+            name='x_path_control',
             parameters=[{'use_sim_time': False}, config]
         )
     
-    odometry_node = Node(
-            package='mc2_motioncontrol',
-            executable='odometry_node',
-            name='odometry_node',
+    x_odometry_node = Node(
+            package='puzzlebot_emdial',
+            executable='x_odometry_node',
+            name='x_odometry_node',
             parameters=[{'use_sim_time': False}]
         )
 
     return LaunchDescription([
-        path_control,
-        path_generator,
-        odometry_node,
+        x_path_control,
+        x_path_generator,
+        x_odometry_node,
     ])

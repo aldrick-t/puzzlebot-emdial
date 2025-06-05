@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'cam_preprocess = toolbox_pkg.cam_preprocess:main',
             'img_capture = toolbox_pkg.img_capture:main',
+            'path_recorder = toolbox_pkg.path_recorder:main',
         ],
     },
 )
