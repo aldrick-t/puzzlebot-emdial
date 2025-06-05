@@ -67,11 +67,19 @@ def generate_launch_description():
     #                      }, config_cv]
     #     )
 
+    x_odometry_node = Node(
+            package='line_follower',
+            executable='x_odometry_node',
+            name='x_odometry_node',
+            parameters=[{'use_sim_time': False}]
+        )
+
     
     return LaunchDescription([
         cam_preprocess,
         line_recogni,
         line_cmd,
         robot_ctrl,
+        x_odometry_node,
         #trafficlight_recogni,
     ])
