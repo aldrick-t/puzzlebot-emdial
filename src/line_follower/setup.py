@@ -29,11 +29,12 @@ setup(
             'line_cmd = line_follower.line_cmd:main',
             'robot_ctrl = line_follower.robot_ctrl:main',
             'visual_monitor = line_follower.visual_monitor:main',
-            'odometry_node = line_follower.odometry_node:main',
+            #'odometry_node = line_follower.odometry_node:main',
             'trafficlight_recogni = line_follower.trafficlight_recogni:main',
             'trafficlight_recogni_legacy = line_follower.trafficlight_recogni_legacy:main',
             'trafficlight_recogni_mk2 = line_follower.trafficlight_recogni_mk2:main',
             'traffic_light_detector = line_follower.traffic_light_detector:main',
+            'x_odometry_node = line_follower.x_odometry_node:main',
         ],
     },
 )

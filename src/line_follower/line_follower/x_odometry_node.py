@@ -10,18 +10,19 @@ import rclpy
 import rclpy.logging
 from rclpy.node import Node
 from geometry_msgs.msg import Pose2D
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, String
 from rclpy.qos import qos_profile_sensor_data
 import numpy as np
 
 class Odometry(Node):
 
     def __init__(self):
-        super().__init__('odometry_node')
+        super().__init__('x_odometry_node')
         self.pub_pose = self.create_publisher(Pose2D, 'pose', 10)
 
         self.create_subscription(Float32, "VelocityEncR", self.wr_cb, qos_profile_sensor_data)
         self.create_subscription(Float32, "VelocityEncL", self.wl_cb, qos_profile_sensor_data)
+        self.cross_status_sub = self.create_subscription(String, 'cross_status', self.cross_status_cb, 10)
 
         self.r = 0.05  # wheel radius for our simulated robot [m]
         self.L = 0.175  # wheel separation for our simulated robot [m]
@@ -39,18 +40,34 @@ class Odometry(Node):
 
         timer_period = 0.05
         self.create_timer(timer_period, self.main_timer_cb)
-        self.get_logger().info("Odometry Initialized SEXOOOO!")
+        #self.get_logger().info("Odometry Initialized!")
+        self.get_logger().info("SEXOOOOOOO!")
 
         # Filter parameters
         self.filter_window_size = 5  # Adjust as needed
         self.wl_filter_buffer = []
         self.wr_filter_buffer = []
 
+
     def main_timer_cb(self):
         v, w = self.get_robot_velocity(self.wl, self.wr)
         self.update_robot_pose(v, w)
         print("Robot pose: ", self.robot_pose.x, self.robot_pose.y, self.robot_pose.theta)
         self.pub_pose.publish(self.robot_pose)
+
+    def cross_status_cb(self, msg):
+        '''
+        Callback function for cross status
+        '''
+        if (msg.data == 'xing'):
+            self.x = 0.0
+            self.y = 0.0
+            self.theta = 0.0
+            self.robot_pose.x = 0.0
+            self.robot_pose.y = 0.0
+            self.robot_pose.theta = 0.0
+            self.get_logger().info("RESET ODOMETRY!!!!!")
+    
 
     def wl_cb(self, wl):
         self.wl_filter_buffer.append(wl.data)
