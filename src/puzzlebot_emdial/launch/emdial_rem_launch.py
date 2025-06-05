@@ -1,5 +1,5 @@
 '''
-line_follow_rem_launch.py
+emdial_rem_launch.py
 
 Launch file for FULL puzzlebot_emdial package in REMOTE mode.
 Nodes: line_recogni, cam_preprocess, visual_monitor, line_cmd, robot_ctrl, trafficlight_recogni
@@ -27,15 +27,6 @@ def generate_launch_description():
         'config',
         'control_params.yaml'
     )
-    
-    cam_preprocess = Node(
-            package='puzzlebot_emdial',
-            executable='cam_preprocess',
-            name='cam_preprocess',
-            parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',
-                         }, config_cv]
-        )
     
     line_recogni = Node(
             package='puzzlebot_emdial',
@@ -66,20 +57,26 @@ def generate_launch_description():
             parameters=[{'use_sim_time': False}, config_ctrl]
         )
     
-    trafficlight_recogni = Node(
+    x_odometry_node = Node(
             package='puzzlebot_emdial',
-            executable='trafficlight_recogni_legacy',
-            name='trafficlight_recogni_legacy',
+            executable='x_odometry_node',
+            name='x_odometry_node',
+            parameters=[{'use_sim_time': False}]
+    )
+    
+    tlts_detector = Node(
+            package='puzzlebot_emdial',
+            executable='tlts_detector',
+            name='tlts_detector',
             parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',
-                         }, config_cv]
+                         'camera_topic': 'video_source/raw',}, config_cv]
         )
     
     return LaunchDescription([
-        cam_preprocess,
         line_recogni,
-        visual_monitor,
+        #visual_monitor,
         line_cmd,
         robot_ctrl,
-        trafficlight_recogni,
+        x_odometry_node,
+        tlts_detector,
     ])

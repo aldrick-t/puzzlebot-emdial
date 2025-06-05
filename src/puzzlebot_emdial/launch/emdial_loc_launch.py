@@ -1,5 +1,5 @@
 '''
-line_follow_loc_launch.py
+emdial_loc_launch.py
 
 Launch file for LOCAL puzzlebot_emdial nodes in ONBOARD mode.
 Only visual monitor and traffic light recognition nodes are launched.
@@ -37,25 +37,16 @@ def generate_launch_description():
                          'camera_topic': 'video_source/raw',}]
         )
     
-    traffic_light_detector = Node(
+    tlts_detector = Node(
             package='puzzlebot_emdial',
-            executable='traffic_light_detector',
-            name='traffic_light_detector',
+            executable='tlts_detector',
+            name='tlts_detector',
             parameters=[{'use_sim_time': False,
                          'camera_topic': 'video_source/raw',}, config_cv]
         )
     
-    # trafficlight_recogni = Node(
-    #         package='puzzlebot_emdial',
-    #         executable='trafficlight_recogni_mk2',
-    #         name='trafficlight_recogni_mk2',
-    #         parameters=[{'use_sim_time': False,
-    #                      'camera_topic': 'video_source/raw',
-    #                      }, config_cv]
-    #     )
-    
     return LaunchDescription([
         # visual_monitor,
         #trafficlight_recogni,
-        traffic_light_detector,
+        tlts_detector,
     ])
