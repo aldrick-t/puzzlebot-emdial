@@ -53,6 +53,10 @@ class LineCmd(Node):
         # Dynamic parameters
         # Logging level
         self.declare_parameter('log_severity', 'DEBUG')
+        self.declare_parameter('dy_precheck_thresh', 0.00)
+        
+        # Parameter vars
+        self.dy_precheck_thresh = self.get_parameter('dy_precheck_thresh').get_parameter_value().double_value
         
         # Flags
         self.cross_in_fov = False
@@ -76,6 +80,14 @@ class LineCmd(Node):
         self.line_cmd_pub = self.create_publisher(Float32, 'line_cmd', 10)
         # cross detection command
         self.cross_detect_pub = self.create_publisher(String, 'cross_detect', 10)
+        # Delta Y value for crossing detection
+        self.delta_y_pub = self.create_publisher(Float32, 'delta_y', 10)
+        
+        
+        # Timer for periodic processing
+        self.create_timer(0.01, self.timer_process_cb)
+        # Timer callback function
+        
         
         # Running message
         self.logger.info("LineRecogni Initialized!")
@@ -87,6 +99,11 @@ class LineCmd(Node):
                 self.get_logger().set_level(severity)
                 rclpy.logging.get_logger('rclpy').set_level(severity)
                 self.get_logger().info(f"Log severity set to {param.value}")
+            elif param.name == 'dy_precheck_thresh':
+                self.dy_precheck_thresh = param.value
+                self.get_logger().info(f"Dynamic precheck threshold set to {self.dy_precheck_thresh}")
+            else:
+                self.get_logger().warn(f"Unknown parameter: {param.name}")
         
         return SetParametersResult(successful=True)
     
@@ -104,12 +121,19 @@ class LineCmd(Node):
         # Parse message data
         self.cy_array = np.array(msg.data)
         
+    def viewfield_dim_cb(self, msg):
+        '''
+        Callback function for all frame dimensions topic
+        '''
+        self.viewfield_dim_array = np.array(msg.data)
+        
     def line_cmd_cb(self, msg):
         '''
         Callback function for line command topic
         '''
         # Gather data from source image processing
-        process_img_data = [self.img, self.width, self.center_x, self.null_thresh_l, self.null_thresh_r]
+        full_width, center_x, null_thresh_l, null_thresh_r = self.process_sources(self.viewfield_dim_array)
+        process_img_data = (full_width, center_x, null_thresh_l, null_thresh_r)
         # Process line recognition data
         line_recogni_data = msg.data
         # Process line command
@@ -126,22 +150,34 @@ class LineCmd(Node):
         cmd_msg_t = Float32()
         cmd_msg_t.data = cmd_msg
         self.line_cmd_pub.publish(cmd_msg_t)
-        self.publish  
         
-    def process_sources(self, msg):
+    def timer_process_cb(self):
+        '''
+        Timer callback function for periodic processing
+        '''
+        # Check if cx_array and cy_array are available
+        full_width, center_x, null_thresh_l, null_thresh_r = self.process_sources(self.viewfield_dim_array)
+        process_img_data = (full_width, center_x, null_thresh_l, null_thresh_r)
+        if hasattr(self, 'cx_array') and hasattr(self, 'cy_array'):
+            # Process crossing detection
+            self.process_cross(self.cx_array, self.cy_array, process_img_data[1])
+            
+        else:
+            self.get_logger().warn("Centroid arrays not available for crossing detection.")
+        
+    def process_sources(self, viewfield_dim_array):
         '''
         Process the source image to extract information
         '''
         # Get image dimensions
-        dim_array = np.array(msg.data)
         # Extract full frame dimensions
-        fullframe_dims = dim_array[0]
+        fullframe_dims = viewfield_dim_array[0]
         full_height, full_width = fullframe_dims[0], fullframe_dims[1]
         # Extract proximal frame dimensions
-        proximal_dims = dim_array[1]
+        proximal_dims = viewfield_dim_array[1]
         proximal_height, proximal_width = proximal_dims[0], proximal_dims[1]
         # Extract midrange frame dimensions
-        midrange_dims = dim_array[2]
+        midrange_dims = viewfield_dim_array[2]
         midrange_height, midrange_width = midrange_dims[0], midrange_dims[1]
         
         # calculate center of the image
@@ -167,7 +203,7 @@ class LineCmd(Node):
         # Initialize command message
         cmd_msg = Float32()
         # Extract data from process image
-        img, width, center_x, null_thresh_l, null_thresh_r = process_img_data
+        width, center_x, null_thresh_l, null_thresh_r = process_img_data
         # Extract line recognition data
         line_recogni = line_recogni_data
         # Calculate command value based on line position
@@ -186,21 +222,58 @@ class LineCmd(Node):
         
         return cmd_msg
         
-    def process_cross(self, ):
+    def process_cross(self, cx_array, cy_array, center_x):
         '''
         Detection verification for crossing lines
         '''
         cross_msg = String()
         
+        # Check if cx_array and cy_array have enough data
+        if len(cx_array) < 4 or len(cy_array) < 4:
+            self.get_logger().warn("Not enough centroids detected for crossing verification.")
+            cross_msg.data = "none"
+            self.cross_detect_pub.publish(cross_msg)
+            return
+        '''
+        Process centroids to filter noise
+        Filter centroids based on a flexible threshold 
+        Threshold calculated from distance between centroids closest to the center
+        '''
+        # Calculate the distance between the centroids closest to the center (either side)
+        left_cx = cx_array[cx_array < center_x]
+        right_cx = cx_array[cx_array > center_x]
+        if len(left_cx) == 0 or len(right_cx) == 0:
+            self.get_logger().warn("No centroids detected on one side of the center.")
+            cross_msg.data = "none"
+            self.cross_detect_pub.publish(cross_msg)
+            return
+        # Calculate the minimum distance between centroids on either side of the center
+        min_distance = min(abs(left_cx[-1] - right_cx[0]), abs(right_cx[-1] - left_cx[0]))
+        # Set a flexible threshold based on the minimum distance
+        flexible_threshold_max = min_distance * 1.1
+        flexible_threshold_min = min_distance * 0.9
+        
+        # Filter centroids based on the flexible threshold
+        self.cx_filtered = cx_array[(cx_array > center_x - flexible_threshold_max) & (cx_array < center_x + flexible_threshold_max)]
+        self.cy_filtered = cy_array[(cy_array > center_x - flexible_threshold_max) & (cy_array < center_x + flexible_threshold_max)]
+           
+
         # Check number of centroids detected
-        if len(self.cx_array) > 3:
+        if len(self.cx_filtered) > 4:
             # More than 3 centroids detected, likely a crossing
             self.get_logger().info("Crossing detected!")
             # Set flag for crossing detection
             self.cross_in_fov = True
-            # Publish crossing message
-            cross_msg.data = "approach"
-            self.cross_detect_pub.publish(cross_msg)
+            if self.calculate_delta_y(self.cy_filtered) > self.dy_precheck_thresh:
+                cross_msg.data = "approach_over"
+                self.get_logger().info("Crossing approaching, over alignment threshold.")
+                # Publish crossing message
+                self.cross_detect_pub.publish(cross_msg)
+                self.delta_y_pub.publish(Float32(data=self.calculate_delta_y(self.cy_filtered)))
+            else:
+                # Publish crossing message
+                cross_msg.data = "approach"
+                self.cross_detect_pub.publish(cross_msg)
         else:
             # Less than 3 centroids detected, not a crossing
             if self.cross_in_fov:
