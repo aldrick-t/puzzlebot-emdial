@@ -73,18 +73,7 @@ def generate_launch_description():
     #                      }, config_cv]
     #     )
 
-    x_path_generator = Node(
-            package='puzzlebot_emdial',
-            executable='x_path_generator',
-            name='x_path_generator',
-            parameters=[{'use_sim_time': False}, config_path]
-        )
-    x_path_control = Node(
-            package='puzzlebot_emdial',
-            executable='x_path_control',
-            name='x_path_control',
-            parameters=[{'use_sim_time': False}, config_path]
-        )
+
     x_odometry_node = Node(
             package='puzzlebot_emdial',
             executable='x_odometry_node',
@@ -99,6 +88,7 @@ def generate_launch_description():
         line_recogni,
         line_cmd,
         robot_ctrl,
+        x_odometry_node
     
         #trafficlight_recogni,
     ])

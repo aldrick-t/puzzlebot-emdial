@@ -122,7 +122,7 @@ class RobotCtrl(Node):
         #--------------------------------------------------
         #Paths and TS
         self.ts_left = False
-        self.ts_right = False
+        self.ts_right = True
         self.ts_straight = False
 
         self.goal_received = False
@@ -132,7 +132,7 @@ class RobotCtrl(Node):
         self.path_right = [(0.23, 0.0), (0.25, -0.23)]
         self.path_straight = [(0.46, 0.0)]
 
-        self.path = self.path_straight
+        self.path = self.ts_straight
 
         # Cross
         self.aproach = False
