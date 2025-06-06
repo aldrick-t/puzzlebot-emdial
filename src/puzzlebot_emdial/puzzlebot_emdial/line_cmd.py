@@ -73,21 +73,22 @@ class LineCmd(Node):
         self.create_subscription(Int32MultiArray, 'line_recogni_mid_cx', self.lr_mid_cx_cb, 10)
         self.create_subscription(Int32MultiArray, 'line_recogni_mid_cy', self.lr_mid_cy_cb, 10)
         # Image dimension topic
-        self.create_subscription(Int32MultiArray, 'viewfield_dim', self.process_sources, 10)
+        self.create_subscription(Int32MultiArray, 'viewfield_dim', self.viewfield_dim_cb, 10)
         
         # Publishers
         # Line following interpreted command
         self.line_cmd_pub = self.create_publisher(Float32, 'line_cmd', 10)
         # cross detection command
-        self.cross_detect_pub = self.create_publisher(String, 'cross_detect', 10)
+        self.cross_detect_pub = self.create_publisher(String, 'cross_status', 10)
         # Delta Y value for crossing detection
         self.delta_y_pub = self.create_publisher(Float32, 'delta_y', 10)
         
+        # Data arrays
+        self.viewfield_dim_array = []
         
         # Timer for periodic processing
         self.create_timer(0.01, self.timer_process_cb)
         # Timer callback function
-        
         
         # Running message
         self.logger.info("LineRecogni Initialized!")
@@ -132,6 +133,10 @@ class LineCmd(Node):
         Callback function for line command topic
         '''
         # Gather data from source image processing
+        if (isinstance(self.viewfield_dim_array, np.ndarray) and self.viewfield_dim_array.size == 0) or (isinstance(self.viewfield_dim_array, list) and len(self.viewfield_dim_array) == 0):
+            self.get_logger().warn("Viewfield dimensions not available, cannot process line command.")
+            return
+            
         full_width, center_x, null_thresh_l, null_thresh_r = self.process_sources(self.viewfield_dim_array)
         process_img_data = (full_width, center_x, null_thresh_l, null_thresh_r)
         # Process line recognition data
@@ -155,8 +160,14 @@ class LineCmd(Node):
         '''
         Timer callback function for periodic processing
         '''
-        # Check if cx_array and cy_array are available
+        # Check if viewfield dimensions are available
+        if (isinstance(self.viewfield_dim_array, np.ndarray) and self.viewfield_dim_array.size == 0) or (isinstance(self.viewfield_dim_array, list) and len(self.viewfield_dim_array) == 0):
+            self.get_logger().warn("Viewfield dimensions not available, cannot process line command.")
+            return
+
         full_width, center_x, null_thresh_l, null_thresh_r = self.process_sources(self.viewfield_dim_array)
+        
+        # Check if cx_array and cy_array are available
         process_img_data = (full_width, center_x, null_thresh_l, null_thresh_r)
         if hasattr(self, 'cx_array') and hasattr(self, 'cy_array'):
             # Process crossing detection
