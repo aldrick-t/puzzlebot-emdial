@@ -40,8 +40,7 @@ class Odometry(Node):
 
         timer_period = 0.05
         self.create_timer(timer_period, self.main_timer_cb)
-        #self.get_logger().info("Odometry Initialized!")
-        self.get_logger().info("SEXOOOOOOO!")
+        self.get_logger().info("Odometry Initialized!")
 
         # Filter parameters
         self.filter_window_size = 5  # Adjust as needed
