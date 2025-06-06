@@ -162,7 +162,7 @@ class RobotCtrl(Node):
         # Cross status
         self.cross_status_sub = self.create_subscription(String, 'cross_status', self.cross_status_cb, 10)
         # Zebra centroids and y-delta
-        self.cross_delta_sub = self.create_subscription(Int32, 'cross_delta_y', self.cross_delta_cb, 10)
+        self.cross_delta_sub = self.create_subscription(Int32, 'delta_y', self.delta_y_cb, 10)
         # Odometry calculated Pose
         self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
         
@@ -268,7 +268,7 @@ class RobotCtrl(Node):
         self.get_logger().debug(f"RECEIVED CORSS command: {msg.data}", throttle_duration_sec=1.0)
     
 
-    def cross_delta_cb(self, msg):
+    def delta_y_cb(self, msg):
         '''
         Callback function for delta y
         '''
