@@ -109,7 +109,7 @@ class RobotCtrl(Node):
         # Control activation var
         self.ctrl_activate = self.get_parameter('ctrl_activate').value
         # Traffic detection toggle
-        self.detect_tl = self.get_parameter('').value
+        self.detect_tl = self.get_parameter('detect_tl').value
         # Traffic sign detection toggle
         self.detect_ts = self.get_parameter('detect_ts').value
         
@@ -268,8 +268,6 @@ class RobotCtrl(Node):
             self.xing = True
         elif (msg.data == 'approach'):
             self.aproach = True
-        elif (msg.data == 'none'):
-            self.none == True
         else:
             pass
         

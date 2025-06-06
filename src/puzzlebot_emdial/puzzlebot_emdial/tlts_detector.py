@@ -121,8 +121,8 @@ class TrafficLightDetector(Node):
         tl_msg = String(data=best_tl[0])
         self.publisher_ts.publish(ts_msg)
         self.publisher_tl.publish(tl_msg)
-        self.get_logger().info(f'Published TS: "{ts_msg.data}", prob "{best_ts[1]}" ')
-        self.get_logger().info(f'Published TL: "{tl_msg.data}", prob "{best_tl[1]}"')
+        #self.get_logger().info(f'Published TS: "{ts_msg.data}", prob "{best_ts[1]}" ')
+        #self.get_logger().info(f'Published TL: "{tl_msg.data}", prob "{best_tl[1]}"')
 
 
 

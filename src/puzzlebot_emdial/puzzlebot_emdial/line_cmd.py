@@ -182,14 +182,11 @@ class LineCmd(Node):
         '''
         # Get image dimensions
         # Extract full frame dimensions
-        fullframe_dims = viewfield_dim_array[0]
-        full_height, full_width = fullframe_dims[0], fullframe_dims[1]
+        full_height, full_width = viewfield_dim_array[0], viewfield_dim_array[1]
         # Extract proximal frame dimensions
-        proximal_dims = viewfield_dim_array[1]
-        proximal_height, proximal_width = proximal_dims[0], proximal_dims[1]
+        proximal_height, proximal_width = viewfield_dim_array[2], viewfield_dim_array[3]
         # Extract midrange frame dimensions
-        midrange_dims = viewfield_dim_array[2]
-        midrange_height, midrange_width = midrange_dims[0], midrange_dims[1]
+        midrange_height, midrange_width = viewfield_dim_array[4], viewfield_dim_array[5]
         
         # calculate center of the image
         center_x = full_width // 2
@@ -241,7 +238,7 @@ class LineCmd(Node):
         
         # Check if cx_array and cy_array have enough data
         if len(cx_array) < 4 or len(cy_array) < 4:
-            self.get_logger().warn("Not enough centroids detected for crossing verification.")
+            #self.get_logger().warn("Not enough centroids detected for crossing verification.")
             cross_msg.data = "none"
             self.cross_detect_pub.publish(cross_msg)
             return
@@ -254,7 +251,7 @@ class LineCmd(Node):
         left_cx = cx_array[cx_array < center_x]
         right_cx = cx_array[cx_array > center_x]
         if len(left_cx) == 0 or len(right_cx) == 0:
-            self.get_logger().warn("No centroids detected on one side of the center.")
+            #self.get_logger().warn("No centroids detected on one side of the center.")
             cross_msg.data = "none"
             self.cross_detect_pub.publish(cross_msg)
             return
