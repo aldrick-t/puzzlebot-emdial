@@ -143,10 +143,13 @@ class RobotCtrl(Node):
 
         self.path = self.path_left
 
-        # Cross
+        # Cross 
         self.aproach = False
         self.xing = False
         self.no_cross = False
+        
+        # "Local"
+        self.crossing = True
 
         self.centroid_delta = 120
 
@@ -295,8 +298,8 @@ class RobotCtrl(Node):
         # Normalize the angle to be between -pi and pi
         etheta = np.arctan2(np.sin(etheta), np.cos(etheta))
         # Debug prints
-        self.get_logger().debug(f"Distance to goal: {ed:.2f} m")
-        self.get_logger().debug(f"Angle to goal: {etheta:.2f} rad")
+        self.get_logger().debug(f"Distance to goal: {ed:.2f} m", throttle_duration_sec=1.0)
+        self.get_logger().debug(f"Angle to goal: {etheta:.2f} rad", throttle_duration_sec=1.0)
         return ed, etheta
 
 
@@ -316,6 +319,8 @@ class RobotCtrl(Node):
         if self.current_goal_index + 1 >= len(self.path):
             self.get_logger().info('Reached end of path, no more points.')
             self.xing = False
+            self.aproach = False
+            self.crossing = True
             self.current_goal_index = -1
         else:
             self.xg = self.path[self.current_goal_index] # Goal position x[m]
@@ -340,6 +345,7 @@ class RobotCtrl(Node):
                 self.get_logger().info("Straight path selected.")
                 self.start_path(self.path_straight)
                 self.ts_straight = False
+            self.crossing = True
         if not self.goal_received:
             self.give_point()
 
@@ -494,7 +500,7 @@ class RobotCtrl(Node):
             self.cmd_vel_pub.publish(self.cmd_vel)
             return
         
-        if self.xing and self.aproach:
+        if self.xing and self.aproach and not self.crossing:
             #Stop motors before odometry
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
@@ -563,16 +569,19 @@ class RobotCtrl(Node):
 
         # Traffic detection enabled: apply traffic light logic
         if self.tl_red or self.moving:
-            self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
-            self.soft_stop()
+            self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
+            #self.soft_stop()
+            self.cmd_vel.linear.x = 0.0
+            self.cmd_vel.angular.z = 0.0
+            self.cmd_vel_pub.publish(self.cmd_vel)
             return
         elif self.tl_yellow or self.reduced_sign_speed:
-            self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
+            self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=1.0)
             if self.moving:
                 v = np.clip(v, 0, self.v_limit_slow)
             w = np.clip(w, -self.w_limit_slow, self.w_limit_slow)
         elif self.tl_green:
-            self.get_logger().info("Traffic light GREEN, moving robot.", throttle_duration_sec=7.0)
+            self.get_logger().info("Traffic light GREEN, moving robot.", throttle_duration_sec=1.0)
             v = np.clip(v, 0, self.v_limit)
             w = np.clip(w, -self.w_limit, self.w_limit)
         # else: no change, proceed with base v,w
