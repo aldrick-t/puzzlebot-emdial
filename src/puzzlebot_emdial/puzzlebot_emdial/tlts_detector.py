@@ -16,7 +16,7 @@ class TrafficLightDetector(Node):
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
         # Confidence threshold
-        self.conf_threshold = 0.63
+        self.conf_threshold = 0.78
 
         # Subscribe to your camera feed
         self.create_subscription(
@@ -80,7 +80,7 @@ class TrafficLightDetector(Node):
         best_ts = ('none', 0.0)
         best_tl = ('none', 0.0)
 
-        if results.boxes.shape[0] > 0.63:
+        if results.boxes.shape[0] > 0.78:
             boxes     = results.boxes.xyxy.cpu().numpy()
             confs     = results.boxes.conf.cpu().numpy()
             class_ids = results.boxes.cls.cpu().numpy().astype(int)
