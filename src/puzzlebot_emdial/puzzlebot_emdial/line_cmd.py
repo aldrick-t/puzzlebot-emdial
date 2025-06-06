@@ -79,7 +79,7 @@ class LineCmd(Node):
         # Line following interpreted command
         self.line_cmd_pub = self.create_publisher(Float32, 'line_cmd', 10)
         # cross detection command
-        self.cross_detect_pub = self.create_publisher(String, 'cross_detect', 10)
+        self.cross_detect_pub = self.create_publisher(String, 'cross_status', 10)
         # Delta Y value for crossing detection
         self.delta_y_pub = self.create_publisher(Float32, 'delta_y', 10)
         
