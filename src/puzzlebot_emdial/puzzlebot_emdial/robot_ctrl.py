@@ -77,13 +77,13 @@ class RobotCtrl(Node):
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
         # Traffic detection toggle
-        self.declare_parameter('detect_traffic', True)
+        self.declare_parameter('detect_tl', True)
+        # Traffic sign detection toggle
+        self.declare_parameter('detect_ts', True)
         # Curve detect threshhold
         self.declare_parameter('curve_detect_thresh', 0.3)
-        
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
-        
         # Variables
         # Velocity PID gains
         self.Kp_v = self.get_parameter('Kp_v').value
@@ -108,8 +108,10 @@ class RobotCtrl(Node):
         self.curve_detect_thresh = self.get_parameter('curve_detect_thresh').value
         # Control activation var
         self.ctrl_activate = self.get_parameter('ctrl_activate').value
-        # Traffic detection flag
-        self.detect_traffic = self.get_parameter('detect_traffic').value
+        # Traffic detection toggle
+        self.detect_tl = self.get_parameter('').value
+        # Traffic sign detection toggle
+        self.detect_ts = self.get_parameter('detect_ts').value
         
         # Init traffic light message var
         self.traffic_light = None
@@ -199,12 +201,18 @@ class RobotCtrl(Node):
                     self.cmd_vel.linear.x = 0.0
                     self.cmd_vel.angular.z = 0.0
                     self.cmd_vel_pub.publish(self.cmd_vel)
-            elif param.name == 'detect_traffic':
-                self.detect_traffic = param.value
-                if self.detect_traffic:
+            elif param.name == 'detect_tl':
+                self.detect_tl = param.value
+                if self.detect_tl:
                     self.get_logger().info("Traffic light detection ENABLED")
                 else:
                     self.get_logger().info("Traffic light detection DISABLED")
+            elif param.name == 'detect_ts':
+                self.detect_ts = param.value
+                if self.detect_ts:
+                    self.get_logger().info("Traffic sign detection ENABLED")
+                else:
+                    self.get_logger().info("Traffic sign detection DISABLED")
             elif param.name == 'Kp_v':
                 self.Kp_v = param.value
                 self.get_logger().info(f"Kp_v set to {param.value}")
@@ -503,13 +511,15 @@ class RobotCtrl(Node):
         
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
-        self.last_time = now 
-        
-        if self.ts_work:
+        self.last_time = now
+
+        if self.detect_ts and self.ts_work:
             if self.ts_start_time_reduce_speed is None:
                 self.ts_start_time_reduce_speed = now
                 self.get_logger().info("Working: Reduce Speed")
-            if now - self.ts_start_time_reduce_speed <= 5:
+
+            elapsed_secs = (now - self.ts_start_time_reduce_speed).nanoseconds * 1e-9
+            if elapsed_secs <= 5.0:
                 self.reduced_sign_speed = True
             else:
                 self.ts_work = False
@@ -517,22 +527,32 @@ class RobotCtrl(Node):
                 self.ts_start_time_reduce_speed = None
                 self.get_logger().info("Setting Normal Speed")
 
-        elif self.ts_give:
+        # 2) If we see a 'give way' sign and detect_ts == True, reduce speed for 10 seconds:
+        elif self.detect_ts and self.ts_give:
             if self.ts_start_time_reduce_speed is None:
                 self.ts_start_time_reduce_speed = now
                 self.get_logger().info("Give Way: Reduce Speed")
-            if now - self.ts_start_time_reduce_speed <= 10:
+
+            elapsed_secs = (now - self.ts_start_time_reduce_speed).nanoseconds * 1e-9
+            if elapsed_secs <= 10.0:
                 self.reduced_sign_speed = True
             else:
                 self.ts_give = False
                 self.reduced_sign_speed = False
                 self.ts_start_time_reduce_speed = None
                 self.get_logger().info("Setting Normal Speed")
+
+        else:
+            # If detect_ts == False, force all sign-based reductions off:
+            if not self.detect_ts:
+                self.reduced_sign_speed = False
+                self.ts_start_time_reduce_speed = None
+        
         # Compute base control from line following
         v, w = self.control_sys(self.line_cmd)
         
         # If traffic detection disabled, publish line-following commands directly
-        if not self.detect_traffic:
+        if not self.detect_tl:
             # Clip to normal limits
             v = np.clip(v, 0, self.v_limit)
             w = np.clip(w, -self.w_limit, self.w_limit)
