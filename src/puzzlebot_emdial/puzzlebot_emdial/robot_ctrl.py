@@ -83,6 +83,23 @@ class RobotCtrl(Node):
         # Curve detect threshhold
         self.declare_parameter('curve_detect_thresh', 0.3)
         # Parameter Callback
+        
+        # Temp Params for Preset Path tuning
+        # Left Turn Path
+        self.declare_parameter('pathL_1', 0.23)
+        self.declare_parameter('pathL_2', 0.0)
+        self.declare_parameter('pathL_3', 0.31)
+        self.declare_parameter('pathL_4', 0.24)
+        # Right Turn Path
+        self.declare_parameter('pathR_1', 0.23)
+        self.declare_parameter('pathR_2', 0.0)
+        self.declare_parameter('pathR_3', 0.33)
+        self.declare_parameter('pathR_4', -0.24)
+        # Straight Path
+        self.declare_parameter('pathS_1', 0.40)
+        self.declare_parameter('pathS_2', 0.0)
+        
+        
         self.add_on_set_parameters_callback(self.parameter_callback)
         # Variables
         # Velocity PID gains
@@ -137,9 +154,29 @@ class RobotCtrl(Node):
         self.goal_received = False
         self.current_goal_index = -1
 
-        self.path_left = [0.23, 0.0, 0.31, 0.24]
-        self.path_right = [0.23, 0.0, 0.33, -0.24]
-        self.path_straight = [0.40, 0.0]
+        # Preset Paths 
+        # self.path_left = [0.23, 0.0, 0.31, 0.24]
+        # self.path_right = [0.23, 0.0, 0.33, -0.24]
+        # self.path_straight = [0.40, 0.0]
+        
+        # Load paths from parameters (for tuning)
+        self.path_left = [
+            self.get_parameter('pathL_1').value,
+            self.get_parameter('pathL_2').value,
+            self.get_parameter('pathL_3').value,
+            self.get_parameter('pathL_4').value
+        ]
+        self.path_right = [
+            self.get_parameter('pathR_1').value,
+            self.get_parameter('pathR_2').value,
+            self.get_parameter('pathR_3').value,
+            self.get_parameter('pathR_4').value
+        ]
+        self.path_straight = [
+            self.get_parameter('pathS_1').value,
+            self.get_parameter('pathS_2').value
+        ]
+        
 
         self.path = self.path_left
 
@@ -250,7 +287,39 @@ class RobotCtrl(Node):
             elif param.name == 'curve_detect_thresh':
                 self.curve_detect_thresh = param.value
                 self.get_logger().info(f"curve_detect_thresh set to {param.value}")
-                
+            # Live path tuning parameters
+            elif param.name == 'pathL_1':
+                self.path_left[0] = param.value
+                self.get_logger().info(f"pathL_1 set to {param.value}")
+            elif param.name == 'pathL_2':
+                self.path_left[1] = param.value
+                self.get_logger().info(f"pathL_2 set to {param.value}")
+            elif param.name == 'pathL_3':
+                self.path_left[2] = param.value
+                self.get_logger().info(f"pathL_3 set to {param.value}")
+            elif param.name == 'pathL_4':
+                self.path_left[3] = param.value
+                self.get_logger().info(f"pathL_4 set to {param.value}")
+            elif param.name == 'pathR_1':
+                self.path_right[0] = param.value
+                self.get_logger().info(f"pathR_1 set to {param.value}")
+            elif param.name == 'pathR_2':
+                self.path_right[1] = param.value
+                self.get_logger().info(f"pathR_2 set to {param.value}")
+            elif param.name == 'pathR_3':
+                self.path_right[2] = param.value
+                self.get_logger().info(f"pathR_3 set to {param.value}")
+            elif param.name == 'pathR_4':
+                self.path_right[3] = param.value
+                self.get_logger().info(f"pathR_4 set to {param.value}")
+            elif param.name == 'pathS_1':
+                self.path_straight[0] = param.value
+                self.get_logger().info(f"pathS_1 set to {param.value}")
+            elif param.name == 'pathS_2':
+                self.path_straight[1] = param.value
+                self.get_logger().info(f"pathS_2 set to {param.value}")
+            # Live path tuning parameters end    
+        
         return SetParametersResult(successful=True)
     
 
