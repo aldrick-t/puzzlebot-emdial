@@ -151,6 +151,8 @@ class LineRecogni(Node):
             mid_image.shape[0],  # Mid-range cropped image height
             mid_image.shape[1]   # Mid-range cropped image width
         ]
+        # publish viewfield dims
+        self.viewfield_dim_pub.publish(self.viewfield_dim_array)
         
         # Convert processed images back to ROS format
         mid_overlay_image = self.bridge.cv2_to_imgmsg(overlay_image, encoding='bgr8')

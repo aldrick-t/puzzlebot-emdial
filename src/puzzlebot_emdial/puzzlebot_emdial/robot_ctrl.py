@@ -118,7 +118,7 @@ class RobotCtrl(Node):
         self.tl_yellow = False
         self.tl_green = False
         self.moving = False
-        #--------------------------------------------------
+
         #Paths and TS
         self.ts_left = False
         self.ts_right = False
