@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -5,8 +7,9 @@ from std_msgs.msg import String
 from cv_bridge import CvBridge
 from ultralytics import YOLO
 import cv2
+import numpy as np
 
-class TrafficLightDetector(Node):
+class TLTSDetector(Node):
     def __init__(self):
         super().__init__('tlts_detector')
         self.bridge = CvBridge()
@@ -14,34 +17,42 @@ class TrafficLightDetector(Node):
         # Create a named window for display
         self.window_name = 'Traffic Light Detection'
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        
-        # Confidence threshold
-        self.conf_threshold = 0.78
 
-        # Subscribe to your camera feed
+        # Confidence thresholds
+        self.tl_conf_threshold = 0.78  # Threshold for traffic lights
+        self.ts_conf_threshold = 0.5   # Threshold for traffic signs
+
+        # Biases for score calculation (sum must equal 1)
+        self.biases = {
+            'brightness': 0.2,
+            'size': 0.3,
+            'position': 0.5
+        }
+
+        # Subscribe to camera feed
         self.create_subscription(
             Image,
             '/video_source/raw',
             self.image_callback,
             10
         )
-        # Publisher for detected color
+
+        # Publishers for detected classes
         self.publisher_tl = self.create_publisher(
             String,
             '/traffic_light',
             10
         )
-
         self.publisher_ts = self.create_publisher(
             String,
             '/traffic_sign',
             10
         )
 
-        # Load your custom-trained YOLOv8 model
+        # Load custom-trained YOLOv8 model
         self.model = YOLO('./src/puzzlebot_emdial/models/jun5_v8v8_e_uni_tlts.pt')
 
-        # Map class indices → color strings
+        # Map class indices → names
         self.class_map = {
             0: 'tl_green',
             1: 'tl_red',
@@ -55,16 +66,16 @@ class TrafficLightDetector(Node):
         }
         # BGR colors for drawing
         self.colors = {
-            'tl_red':    (0,   0, 255),
-            'tl_yellow': (0, 255, 255),
-            'tl_green':  (0, 255,   0),
-            'ts_giveway':(255,255,255),
-            'ts_left':(100,255,255),
-            'ts_right':(255,100,255),
-            'ts_stop':(255,255,100),
-            'ts_straight':(100,255,100),
-            'ts_work':(100,100,255),
-            'unknown':(255,255,255),
+            'tl_red':      (0,   0, 255),
+            'tl_yellow':   (0, 255, 255),
+            'tl_green':    (0, 255,   0),
+            'ts_giveway':  (255,255,255),
+            'ts_left':     (100,255,255),
+            'ts_right':    (255,100,255),
+            'ts_stop':     (255,255,100),
+            'ts_straight': (100,255,100),
+            'ts_work':     (100,100,255),
+            'unknown':     (255,255,255),
         }
 
     def image_callback(self, img_msg: Image):
@@ -74,61 +85,98 @@ class TrafficLightDetector(Node):
             self.get_logger().error(f'CV Bridge error: {e}')
             return
 
+        height, width = frame.shape[:2]
+        frame_center_x = width / 2.0
+        frame_area = width * height
+
+        # Run detection
         results = self.model(frame)[0]
+        boxes     = results.boxes.xyxy.cpu().numpy()
+        confs     = results.boxes.conf.cpu().numpy()
+        class_ids = results.boxes.cls.cpu().numpy().astype(int)
 
-        # Default messages
+        # Track best detections
         best_ts = ('none', 0.0)
+        best_ts_conf = 0.0
         best_tl = ('none', 0.0)
+        best_tl_score = 0.0
 
-        if results.boxes.shape[0] > 0.78:
-            boxes     = results.boxes.xyxy.cpu().numpy()
-            confs     = results.boxes.conf.cpu().numpy()
-            class_ids = results.boxes.cls.cpu().numpy().astype(int)
-
+        if boxes.shape[0] > 0:
             for box, conf, cls_id in zip(boxes, confs, class_ids):
-                if conf < self.conf_threshold:
-                    continue
-
-                x1, y1, x2, y2 = map(int, box)
                 class_name = self.class_map.get(cls_id, 'unknown')
                 color = self.colors.get(class_name, self.colors['unknown'])
+                x1, y1, x2, y2 = map(int, box)
 
-                # Draw bounding box and label
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                label = f"{class_name}: {conf:.2f}"
-                cv2.putText(
-                    frame, label, (x1, max(y1 - 10, 0)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
-                )
+                # Traffic sign logic
+                if class_name.startswith('ts_'):
+                    if conf < self.ts_conf_threshold:
+                        continue
+                    if conf > best_ts_conf:
+                        best_ts_conf = conf
+                        best_ts = (class_name, conf)
+                    # Draw TS bounding box and label
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    label = f"{class_name}: {conf:.2f}"
+                    cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-                # Track best tl_ and ts_ detection
-                if class_name.startswith('ts_') and conf > best_ts[1]:
-                    best_ts = (class_name, conf)
-                elif class_name.startswith('tl_') and conf > best_tl[1]:
-                    best_tl = (class_name, conf)
+                # Traffic light logic
+                elif class_name.startswith('tl_'):
+                    if conf < self.tl_conf_threshold:
+                        continue
+
+                    # Compute size metric (normalized area)
+                    w = x2 - x1
+                    h = y2 - y1
+                    area = w * h
+                    size_norm = area / frame_area
+
+                    # Compute position metric (centeredness)
+                    centroid_x = (x1 + x2) / 2.0
+                    pos_score = 1.0 - abs(centroid_x - frame_center_x) / frame_center_x
+                    pos_score = max(0.0, min(1.0, pos_score))
+
+                    # Compute brightness metric (normalized mean intensity)
+                    roi = frame[y1:y2, x1:x2]
+                    if roi.size > 0:
+                        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                        brightness_norm = float(np.mean(gray)) / 255.0
+                    else:
+                        brightness_norm = 0.0
+
+                    # Compute combined score using biases
+                    score = (self.biases['brightness'] * brightness_norm +
+                             self.biases['size']       * size_norm +
+                             self.biases['position']   * pos_score)
+
+                    # Update best TL candidate
+                    if score > best_tl_score:
+                        best_tl_score = score
+                        best_tl = (class_name, score)
+
+                    # Draw TL bounding box and label with score
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    label = f"{class_name}: {conf:.2f}, score: {score:.2f}"
+                    cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         else:
-            cv2.putText(
-                frame, 'No detection', (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2
-            )
+            cv2.putText(frame, 'No detection', (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
 
-        # Show the frame with overlays
+        # Display
         cv2.imshow(self.window_name, frame)
         cv2.waitKey(1)
 
-        # Publish both messages
+        # Publish results (only class names)
         ts_msg = String(data=best_ts[0])
         tl_msg = String(data=best_tl[0])
         self.publisher_ts.publish(ts_msg)
         self.publisher_tl.publish(tl_msg)
-        #self.get_logger().info(f'Published TS: "{ts_msg.data}", prob "{best_ts[1]}" ')
-        #self.get_logger().info(f'Published TL: "{tl_msg.data}", prob "{best_tl[1]}"')
-
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = TrafficLightDetector()
+    node = TLTSDetector()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -136,7 +184,4 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-        cv2.destroyAllWindows()  # clean up the display window
-
-if __name__ == '__main__':
-    main()
+        cv2.destroyAllWindows()
