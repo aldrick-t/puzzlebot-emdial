@@ -119,11 +119,19 @@ class RobotCtrl(Node):
         self.tl_green = False
         self.moving = False
         #--------------------------------------------------
-        #Paths and TS
+        # TS
         self.ts_left = False
         self.ts_right = False
         self.ts_straight = True
+        
+        self.ts_stop = False
+        self.ts_give = False
+        self.ts_work = False
 
+        self.ts_start_time_reduce_speed = None
+        self.reduced_sign_speed = False
+
+        # Path
         self.goal_received = False
         self.current_goal_index = -1
 
@@ -148,13 +156,16 @@ class RobotCtrl(Node):
         # line command sub
         self.create_subscription(Float32, self.get_parameter('cmd_input_topic').value, self.line_cmd_cb, 10)
         # Traffic light data sub
-        self.create_subscription(String, 'traffic_light_color', self.traffic_light_cb, 10)
+        self.create_subscription(String, 'traffic_light', self.traffic_light_cb, 10)
+        # Traffic sign data sub
+        self.create_subscription(String, 'traffic_sign', self.traffic_sign_cb, 10)
         # Cross status
         self.cross_status_sub = self.create_subscription(String, 'cross_status', self.cross_status_cb, 10)
-        # Zebra centroids y delta
+        # Zebra centroids and y-delta
         self.cross_delta_sub = self.create_subscription(Int32, 'cross_delta_y', self.cross_delta_cb, 10)
         # Odometry calculated Pose
         self.pose_sub = self.create_subscription(Pose2D, 'pose', self.pose_cb, 10)
+        
         # Publishers
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         
@@ -344,7 +355,7 @@ class RobotCtrl(Node):
                 self.current_goal_index +=2
             else:
                 self.cmd_vel.linear.x = 0.2 * ed
-                #limit the linear velocity to a maximum of 0.5 m/s
+                #limit the linear velocity to a maximum of 0.2 m/s
                 if self.cmd_vel.linear.x > 0.2:
                     self.cmd_vel.linear.x = 0.2
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
@@ -360,8 +371,6 @@ class RobotCtrl(Node):
             self.get_logger().info("Waiting for goal")
             self.get_logger().debug(f"Goal received: {self.goal_received}")
         
-
-
         
     def traffic_light_cb(self, msg):
         """
@@ -376,16 +385,16 @@ class RobotCtrl(Node):
         self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=1.0)        
 
         # set flags based on which colors are present
-        if 'red' in colors:
+        if 'tl_red' in colors:
             self.tl_red = True
             self.tl_yellow = False
             self.tl_green = False
             self.moving = False
-        elif 'yellow' in colors:
+        elif 'tl_yellow' in colors:
             self.tl_yellow = True
             self.tl_red = False
             self.tl_green = False
-        elif 'green' in colors:
+        elif 'tl_green' in colors:
             self.tl_green = True
             self.moving = True
             self.tl_red = False
@@ -395,6 +404,69 @@ class RobotCtrl(Node):
             self.get_logger().debug(f"None detected, last color state remains.", throttle_duration_sec=1.0)
             
         self.traffic_light = colors
+    
+
+    def traffic_sign_cb(self, msg):
+        """
+        Callback function for traffic sign data.
+        Accepts msg.data as either:
+        - a single color string, e.g. "red"
+        - a comma-separated list, e.g. "red, green, yellow"
+        """
+        raw = msg.data or ""
+        # parse into a list of color tokens
+        signs = [c.strip().lower() for c in raw.split(',') if c.strip()]
+        self.get_logger().debug(f"RECEIVED Traffic light data: {raw}", throttle_duration_sec=1.0)        
+
+        # set flags based on which signs are present
+        if 'tl_stop' in signs:
+            self.ts_left = False
+            self.ts_right = False
+            self.ts_straight = False
+            self.ts_stop = True
+            self.ts_give = False
+            self.ts_work = False
+            self.moving = False
+        elif 'tl_giveway' in signs:
+            self.ts_left = False
+            self.ts_right = False
+            self.ts_straight = False
+            self.ts_stop = False
+            self.ts_give = True
+            self.ts_work = False
+        elif 'tl_work' in signs:
+            self.ts_left = False
+            self.ts_right = False
+            self.ts_straight = False
+            self.ts_stop = False
+            self.ts_give = False
+            self.ts_work = True
+        elif 'tl_left' in signs:
+            self.ts_left = True
+            self.ts_right = False
+            self.ts_straight = False
+            self.ts_stop = False
+            self.ts_give = False
+            self.ts_work = False
+        elif 'tl_right' in signs:
+            self.ts_left = False
+            self.ts_right = True
+            self.ts_straight = False
+            self.ts_stop = False
+            self.ts_give = False
+            self.ts_work = False
+        elif 'tl_straight' in signs:
+            self.ts_left = False
+            self.ts_right = False
+            self.ts_straight = False
+            self.ts_stop = False
+            self.ts_give = False
+            self.ts_work = False
+
+        if 'none' in signs:
+            self.get_logger().debug(f"None detected, last color state remains.", throttle_duration_sec=1.0)
+            
+        self.traffic_light = signs
         
     def timer_callback(self):
         '''
@@ -427,12 +499,35 @@ class RobotCtrl(Node):
         if self.xing:
             self.odometry()
             return
-
-
+        
+        
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now 
         
+        if self.ts_work:
+            if self.ts_start_time_reduce_speed is None:
+                self.ts_start_time_reduce_speed = now
+                self.get_logger().info("Working: Reduce Speed")
+            if now - self.ts_start_time_reduce_speed <= 5:
+                self.reduced_sign_speed = True
+            else:
+                self.ts_work = False
+                self.reduced_sign_speed = False
+                self.ts_start_time_reduce_speed = None
+                self.get_logger().info("Setting Normal Speed")
+
+        elif self.ts_give:
+            if self.ts_start_time_reduce_speed is None:
+                self.ts_start_time_reduce_speed = now
+                self.get_logger().info("Give Way: Reduce Speed")
+            if now - self.ts_start_time_reduce_speed <= 10:
+                self.reduced_sign_speed = True
+            else:
+                self.ts_give = False
+                self.reduced_sign_speed = False
+                self.ts_start_time_reduce_speed = None
+                self.get_logger().info("Setting Normal Speed")
         # Compute base control from line following
         v, w = self.control_sys(self.line_cmd)
         
@@ -449,11 +544,11 @@ class RobotCtrl(Node):
             return
 
         # Traffic detection enabled: apply traffic light logic
-        if self.tl_red:
+        if self.tl_red or self.moving:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=2.0)
             self.soft_stop()
             return
-        elif self.tl_yellow:
+        elif self.tl_yellow or self.reduced_sign_speed:
             self.get_logger().info("Traffic light YELLOW, slowing down robot.", throttle_duration_sec=2.0)
             if self.moving:
                 v = np.clip(v, 0, self.v_limit_slow)
