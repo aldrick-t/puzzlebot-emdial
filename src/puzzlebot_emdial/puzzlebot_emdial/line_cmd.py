@@ -220,10 +220,10 @@ class LineCmd(Node):
             cmd_msg.data = 0.0
         elif line_recogni < null_thresh_l:
             # Line is to the left of the null zone
-            cmd_msg.data = -1.0 * ((center_x - line_recogni) / center_x) + null_thresh_l
+            cmd_msg.data = -1.0 * ((center_x - line_recogni) / center_x) 
         elif line_recogni > null_thresh_r:
             # Line is to the right of the null zone
-            cmd_msg.data = 1.0 * ((line_recogni - center_x) / center_x) - null_thresh_r
+            cmd_msg.data = 1.0 * ((line_recogni - center_x) / center_x)
             
         # Log command value
         self.get_logger().debug(f"Line command: {cmd_msg.data}", throttle_duration_sec=20.0)
@@ -269,12 +269,12 @@ class LineCmd(Node):
         # Check number of centroids detected
         if len(self.cx_filtered) > 4:
             # More than 3 centroids detected, likely a crossing
-            self.get_logger().info("Crossing detected!")
+            self.get_logger().info("Crossing detected!",throttle_duration_sec=0.5)
             # Set flag for crossing detection
             self.cross_in_fov = True
             if self.calculate_delta_y(self.cy_filtered) > self.dy_precheck_thresh:
                 cross_msg.data = "approach_over"
-                self.get_logger().info("Crossing approaching, over alignment threshold.")
+                self.get_logger().info("Crossing approaching, over alignment threshold.",throttle_duration_sec=0.5)
                 # Publish crossing message
                 self.cross_detect_pub.publish(cross_msg)
                 self.delta_y_pub.publish(Float32(data=self.calculate_delta_y(self.cy_filtered)))
@@ -293,7 +293,7 @@ class LineCmd(Node):
                 self.cross_detect_pub.publish(cross_msg)
             else:
                 # No crossing detected
-                self.get_logger().info("No crossing detected.")
+                self.get_logger().info("No crossing detected.", throttle_duration_sec=2.0)
                 # Reset flags
                 self.cross_in_prox = False
                 self.cross_in_fov = False

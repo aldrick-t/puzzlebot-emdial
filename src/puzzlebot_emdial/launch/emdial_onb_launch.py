@@ -34,14 +34,7 @@ def generate_launch_description():
         'path_params.yaml'
     )
     
-    cam_preprocess = Node(
-            package='puzzlebot_emdial',
-            executable='cam_preprocess',
-            name='cam_preprocess',
-            parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',
-                         }, config_cv]
-        )
+
     
     line_recogni = Node(
             package='puzzlebot_emdial',
@@ -74,7 +67,6 @@ def generate_launch_description():
 
     
     return LaunchDescription([
-        cam_preprocess,
         line_recogni,
         line_cmd,
         robot_ctrl,

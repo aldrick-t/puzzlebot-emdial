@@ -59,11 +59,11 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_v', 0.0)
         self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 0.9) #2.0    #1.4
+        self.declare_parameter('Kp_w', 0.8) #2.0    #1.4
         self.declare_parameter('Ki_w', 0.1) #1.2    #1.9
         self.declare_parameter('Kd_w', 0.005) #0.5   #0.09
         # Max speed dynamic parameters
-        self.declare_parameter('v_limit', 0.25)
+        self.declare_parameter('v_limit', 0.15)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
         self.declare_parameter('v_limit_slow', 0.2)
@@ -122,9 +122,9 @@ class RobotCtrl(Node):
         self.moving = False
 
         #Paths and TS
-        self.ts_left = False
+        self.ts_left = True
         self.ts_right = False
-        self.ts_straight = True
+        self.ts_straight = False
         
         self.ts_stop = False
         self.ts_give = False
@@ -137,9 +137,9 @@ class RobotCtrl(Node):
         self.goal_received = False
         self.current_goal_index = -1
 
-        self.path_left = [0.23, 0.0, 0.25, 0.23]
-        self.path_right = [0.23, 0.0, 0.25, -0.23]
-        self.path_straight = [0.46, 0.0]
+        self.path_left = [0.23, 0.0, 0.31, 0.24]
+        self.path_right = [0.23, 0.0, 0.33, -0.24]
+        self.path_straight = [0.40, 0.0]
 
         self.path = self.path_left
 
@@ -149,7 +149,7 @@ class RobotCtrl(Node):
         self.no_cross = False
         
         # "Local"
-        self.crossing = True
+        self.crossing = False
 
         self.centroid_delta = 120
 
@@ -173,6 +173,7 @@ class RobotCtrl(Node):
         
         # Publishers
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
+        self.reset_odom_pub = self.create_publisher(String, 'reset_odometry', 10)
         
         # cmd_vel twist message init
         self.cmd_vel = Twist()
@@ -260,7 +261,7 @@ class RobotCtrl(Node):
         self.line_cmd = msg.data
         
         self.line_cmd_received = True  # Set flag when message is received
-        self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=1.0)
+        self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=10.0)
     
 
     def cross_status_cb(self, msg):
@@ -274,7 +275,7 @@ class RobotCtrl(Node):
         else:
             pass
         
-        self.get_logger().debug(f"RECEIVED CORSS command: {msg.data}", throttle_duration_sec=1.0)
+        self.get_logger().debug(f"RECEIVED CROSS command: {msg.data}", throttle_duration_sec=1.0)
     
 
     def delta_y_cb(self, msg):
@@ -320,7 +321,7 @@ class RobotCtrl(Node):
             self.get_logger().info('Reached end of path, no more points.')
             self.xing = False
             self.aproach = False
-            self.crossing = True
+            self.crossing = False
             self.current_goal_index = -1
         else:
             self.xg = self.path[self.current_goal_index] # Goal position x[m]
@@ -334,18 +335,19 @@ class RobotCtrl(Node):
             if self.ts_left:
                 self.get_logger().info("Left path selected.")
                 self.start_path(self.path_left)
-                self.ts_left = False  # Reset flag to prevent re-triggering
 
             elif self.ts_right:
                 self.get_logger().info("Right path selected.")
                 self.start_path(self.path_right)
-                self.ts_right = False
 
             elif self.ts_straight:
                 self.get_logger().info("Straight path selected.")
                 self.start_path(self.path_straight)
-                self.ts_straight = False
-            self.crossing = True
+            
+            cross_msg = String()
+            cross_msg.data = "reset"
+            self.reset_odom_pub.publish(cross_msg)
+
         if not self.goal_received:
             self.give_point()
 
@@ -370,13 +372,13 @@ class RobotCtrl(Node):
                 #limit the linear velocity to a maximum of 0.2 m/s
                 if self.cmd_vel.linear.x > 0.2:
                     self.cmd_vel.linear.x = 0.2
-                self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s")
+                self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s", throttle_duration_sec=1.0)
 
                 self.cmd_vel.angular.z = 1.2 * etheta
-                self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s")
+                self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s", throttle_duration_sec=1.0)
                 if self.cmd_vel.angular.z > 1.2:
                     self.cmd_vel.angular.z = 1.2
-                    self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s")
+                    self.get_logger().warn(f"Angular velocity above safe limit: {self.cmd_vel.angular.z:.2f} rad/s", throttle_duration_sec=1.0)
 
             self.cmd_vel_pub.publish(self.cmd_vel)
         else: 
@@ -506,9 +508,11 @@ class RobotCtrl(Node):
             self.cmd_vel.angular.z = 0.0
             self.cmd_vel_pub.publish(self.cmd_vel)
             self.aproach = False
+            self.xing = False
+            self.crossing = True
             return
         
-        if self.xing:
+        if self.crossing:
             self.odometry()
             return
         
