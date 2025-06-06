@@ -16,7 +16,7 @@ class TrafficLightDetector(Node):
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
         # Confidence threshold
-        self.conf_threshold = 0.55
+        self.conf_threshold = 0.63
 
         # Subscribe to your camera feed
         self.create_subscription(
@@ -39,7 +39,7 @@ class TrafficLightDetector(Node):
         )
 
         # Load your custom-trained YOLOv8 model
-        self.model = YOLO('./src/line_follower/models/jun5_v8v8_e_uni_tlts.pt')
+        self.model = YOLO('./src/puzzlebot_emdial/models/jun5_v8v8_e_uni_tlts.pt')
 
         # Map class indices → color strings
         self.class_map = {
