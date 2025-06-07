@@ -502,7 +502,7 @@ class RobotCtrl(Node):
         self.get_logger().debug(f"RECEIVED Traffic light data: {raw}", throttle_duration_sec=1.0)        
 
         # set flags based on which signs are present
-        if 'tl_stop' in signs:
+        if 'ts_stop' in signs:
             self.ts_left = False
             self.ts_right = False
             self.ts_straight = False
@@ -510,38 +510,38 @@ class RobotCtrl(Node):
             self.ts_give = False
             self.ts_work = False
             self.moving = False
-        elif 'tl_giveway' in signs:
+        elif 'ts_giveway' in signs:
             self.ts_left = False
             self.ts_right = False
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = True
             self.ts_work = False
-        elif 'tl_work' in signs:
+        elif 'ts_work' in signs:
             self.ts_left = False
             self.ts_right = False
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = True
-        elif 'tl_left' in signs:
+        elif 'ts_left' in signs:
             self.ts_left = True
             self.ts_right = False
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = False
-        elif 'tl_right' in signs:
+        elif 'ts_right' in signs:
             self.ts_left = False
             self.ts_right = True
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = False
-        elif 'tl_straight' in signs:
+        elif 'ts_straight' in signs:
             self.ts_left = False
             self.ts_right = False
-            self.ts_straight = False
+            self.ts_straight = True
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = False
