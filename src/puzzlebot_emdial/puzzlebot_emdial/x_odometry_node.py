@@ -22,7 +22,7 @@ class Odometry(Node):
 
         self.create_subscription(Float32, "VelocityEncR", self.wr_cb, qos_profile_sensor_data)
         self.create_subscription(Float32, "VelocityEncL", self.wl_cb, qos_profile_sensor_data)
-        self.cross_status_sub = self.create_subscription(String, 'cross_status', self.cross_status_cb, 10)
+        self.cross_status_sub = self.create_subscription(String, 'reset_odometry', self.cross_status_cb, 10)
 
         self.r = 0.05  # wheel radius for our simulated robot [m]
         self.L = 0.175  # wheel separation for our simulated robot [m]
@@ -58,7 +58,7 @@ class Odometry(Node):
         '''
         Callback function for cross status
         '''
-        if (msg.data == 'xing'):
+        if (msg.data == 'reset'):
             self.x = 0.0
             self.y = 0.0
             self.theta = 0.0
