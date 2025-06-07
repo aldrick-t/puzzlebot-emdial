@@ -99,14 +99,7 @@ class RobotCtrl(Node):
         self.declare_parameter('pathS_1', 0.40)
         self.declare_parameter('pathS_2', 0.0)
         
-        # Temp TS Params for Testing
-        self.declare_parameter('ts_left', False)
-        self.declare_parameter('ts_right', False)
-        self.declare_parameter('ts_straight', False)
-        self.declare_parameter('ts_stop', False)
-        self.declare_parameter('ts_give', False)
-        self.declare_parameter('ts_work', False)
-    
+        
         self.add_on_set_parameters_callback(self.parameter_callback)
         # Variables
         # Velocity PID gains
@@ -146,22 +139,14 @@ class RobotCtrl(Node):
         self.moving = False
 
         #Paths and TS
-        # self.ts_left = False
-        # self.ts_right = True
-        # self.ts_straight = False
+        self.ts_left = False
+        self.ts_right = False
+        self.ts_straight = False
         
-        # self.ts_stop = False
-        # self.ts_give = False
-        # self.ts_work = False
+        self.ts_stop = False
+        self.ts_give = False
+        self.ts_work = False
 
-        # TS Flags as Params for Testing
-        self.ts_left = self.get_parameter('ts_left').value
-        self.ts_right = self.get_parameter('ts_right').value
-        self.ts_straight = self.get_parameter('ts_straight').value
-        self.ts_stop = self.get_parameter('ts_stop').value
-        self.ts_give = self.get_parameter('ts_give').value
-        self.ts_work = self.get_parameter('ts_work').value
-        
         self.ts_start_time_reduce_speed = None
         self.reduced_sign_speed = False
 
@@ -334,26 +319,6 @@ class RobotCtrl(Node):
                 self.path_straight[1] = param.value
                 self.get_logger().info(f"pathS_2 set to {param.value}")
             # Live path tuning parameters end    
-            # Traffic sign parameters
-            elif param.name == 'ts_left':
-                self.ts_left = param.value
-                self.get_logger().info(f"ts_left set to {param.value}")
-            elif param.name == 'ts_right':
-                self.ts_right = param.value
-                self.get_logger().info(f"ts_right set to {param.value}")
-            elif param.name == 'ts_straight':
-                self.ts_straight = param.value
-                self.get_logger().info(f"ts_straight set to {param.value}")
-            elif param.name == 'ts_stop':
-                self.ts_stop = param.value
-                self.get_logger().info(f"ts_stop set to {param.value}")
-            elif param.name == 'ts_give':
-                self.ts_give = param.value
-                self.get_logger().info(f"ts_give set to {param.value}")
-            elif param.name == 'ts_work':
-                self.ts_work = param.value
-                self.get_logger().info(f"ts_work set to {param.value}")
-            # Traffic sign parameters end
         
         return SetParametersResult(successful=True)
     
@@ -711,17 +676,15 @@ class RobotCtrl(Node):
         self.last_time = now 
         
         # Lost Line detection and recovery
-        # Disabled when Intersection is in Approach or Crossing state
         # Check if line is lost, indicated by a command >= abs(1)
-        if not self.approach or not self.crossing or not self.xing:
-            if line_cmd <= -1 :
-                self.get_logger().debug("Lost line detected, spinning to search for the line")
-                # Spin in place: zero linear velocity and fixed turning speed.
-                return 0.0, 0.3  #
-            elif line_cmd >= 1:
-                self.get_logger().debug("Lost line detected, spinning to search for the line")
-                # Spin in place: zero linear velocity and fixed turning speed.
-                return 0.0, -0.3
+        if line_cmd <= -1 :
+             self.get_logger().debug("Lost line detected, spinning to search for the line")
+             # Spin in place: zero linear velocity and fixed turning speed.
+             return 0.0, 0.3  #
+        elif line_cmd >= 1:
+             self.get_logger().debug("Lost line detected, spinning to search for the line")
+             # Spin in place: zero linear velocity and fixed turning speed.
+             return 0.0, -0.3
         
         # Initialize variables
         self.error_w = line_cmd
