@@ -135,8 +135,8 @@ class RobotCtrl(Node):
         # Traffic light state flags
         self.tl_red = False
         self.tl_yellow = False
-        self.tl_green = False
-        self.moving = False
+        self.tl_green = True
+        self.moving = True
 
         #Paths and TS
         self.ts_left = False
