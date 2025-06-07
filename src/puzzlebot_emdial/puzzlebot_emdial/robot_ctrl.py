@@ -181,7 +181,7 @@ class RobotCtrl(Node):
         self.path = self.path_left
 
         # Cross 
-        self.aproach = False
+        self.approach = False
         self.xing = False
         self.no_cross = False
         
@@ -340,7 +340,7 @@ class RobotCtrl(Node):
         if (msg.data =='xing'):
             self.xing = True
         elif (msg.data == 'approach'):
-            self.aproach = True
+            self.approach = True
         else:
             pass
         
@@ -389,7 +389,7 @@ class RobotCtrl(Node):
         if self.current_goal_index + 1 >= len(self.path):
             self.get_logger().info('Reached end of path, no more points.')
             self.xing = False
-            self.aproach = False
+            self.approach = False
             self.crossing = False
             self.current_goal_index = -1
         else:
@@ -405,7 +405,7 @@ class RobotCtrl(Node):
         self.goal_received = False
         self.current_goal_index = -1
         self.xing = False
-        self.aproach = False
+        self.approach = False
         self.crossing = False
         
 
@@ -587,13 +587,13 @@ class RobotCtrl(Node):
             self.cancel_path()
             return
         
-        if self.xing and self.aproach and not self.crossing:
+        if self.xing and self.approach and not self.crossing:
             if self.tl_green:
                 #Stop motors before odometry
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
-                self.aproach = False
+                self.approach = False
                 self.xing = False
                 self.crossing = True
         
