@@ -180,6 +180,11 @@ class LineCmd(Node):
         '''
         Process the source image to extract information
         '''
+        if len(viewfield_dim_array) < 6:
+            self.get_logger().error(f"Incomplete viewfield dimensions: {viewfield_dim_array}")
+            # Return safe defaults or handle the error as appropriate
+            return (0, 0, 0, 0)
+    
         # Get image dimensions
         # Extract full frame dimensions
         full_height, full_width = viewfield_dim_array[0], viewfield_dim_array[1]
@@ -188,17 +193,13 @@ class LineCmd(Node):
         # Extract midrange frame dimensions
         midrange_height, midrange_width = viewfield_dim_array[4], viewfield_dim_array[5]
         
-        # calculate center of the image
+        # Calculate center of the image
         center_x = full_width // 2
         
-        # Calculate null thresholds
-        # Define null thresholds as a percentage of the image width
-        # null_thresh_l: % from the left edge of the image
-        # null_thresh_r: % from the left edge of the image (or % from the right edge)
+        # Calculate null thresholds as percentage of center_x
         null_thresh_l = int(center_x * 0.98)
         null_thresh_r = int(center_x * 1.02)
-        
-        # Add to overlay image
+    
         return full_width, center_x, null_thresh_l, null_thresh_r
         
         
@@ -236,87 +237,85 @@ class LineCmd(Node):
         '''
         cross_msg = String()
         
-        # Check if cx_array and cy_array have enough data
-        if len(cx_array) < 4 or len(cy_array) < 4:
-            #self.get_logger().warn("Not enough centroids detected for crossing verification.")
-            cross_msg.data = "none"
-            self.cross_detect_pub.publish(cross_msg)
-            return
-        '''
-        Process centroids to filter noise
-        Filter centroids based on a flexible threshold 
-        Threshold calculated from distance between centroids closest to the center
-        '''
-        # Calculate the distance between the centroids closest to the center (either side)
-        left_cx = cx_array[cx_array < center_x]
-        right_cx = cx_array[cx_array > center_x]
-        if len(left_cx) == 0 or len(right_cx) == 0:
-            #self.get_logger().warn("No centroids detected on one side of the center.")
-            cross_msg.data = "none"
-            self.cross_detect_pub.publish(cross_msg)
-            return
-        # Calculate the minimum distance between centroids on either side of the center
-        min_distance = min(abs(left_cx[-1] - right_cx[0]), abs(right_cx[-1] - left_cx[0]))
-        # Set a flexible threshold based on the minimum distance
-        flexible_threshold_max = min_distance * 1.1
-        flexible_threshold_min = min_distance * 0.9
-        
-        # Filter centroids based on the flexible threshold
-        self.cx_filtered = cx_array[(cx_array > center_x - flexible_threshold_max) & (cx_array < center_x + flexible_threshold_max)]
-        self.cy_filtered = cy_array[(cy_array > center_x - flexible_threshold_max) & (cy_array < center_x + flexible_threshold_max)]
-           
+        # Check if enough data is available
+        # if len(cx_array) <= 4 or len(cy_array) <= 4:
+        #     cross_msg.data = "none"
+        #     self.cross_detect_pub.publish(cross_msg)
+        #     return
 
+        # Truncate arrays to the same length
+        n = min(len(cx_array), len(cy_array))
+        cx_array = np.array(cx_array)[:n]
+        cy_array = np.array(cy_array)[:n]
+        
+        # New filtering logic: sort centroids and then process
+        sorted_idx = np.argsort(cx_array)
+        cx_sorted = cx_array[sorted_idx]
+        cy_sorted = cy_array[sorted_idx]
+        
+        if len(cx_sorted) < 2:
+            self.cx_filtered = cx_sorted
+            self.cy_filtered = cy_sorted
+        else:
+            median_dx = np.median(np.diff(cx_sorted))
+            avg_dy, std_dy = self.calculate_delta_y(cy_sorted)
+            valid_idxs = [0]  # always keep first centroid
+            for i in range(1, len(cx_sorted)):
+                dx = cx_sorted[i] - cx_sorted[valid_idxs[-1]]
+                dy = cy_sorted[i] - cy_sorted[valid_idxs[-1]]
+                # Check if x difference is close to median and y difference is within one std of the average delta
+                if (abs(dx - median_dx) <= 0.2 * median_dx) and (abs(dy - avg_dy) <= std_dy):
+                    valid_idxs.append(i)
+            self.cx_filtered = cx_sorted[valid_idxs]
+            self.cy_filtered = cy_sorted[valid_idxs]
+        
         # Check number of centroids detected
-        if len(self.cx_filtered) > 4:
-            # More than 3 centroids detected, likely a crossing
-            self.get_logger().info("Crossing detected!",throttle_duration_sec=0.5)
-            # Set flag for crossing detection
+        if len(self.cx_filtered) in [5, 6, 7] and not self.cross_in_prox:
+            self.get_logger().info("Crossing detected!", throttle_duration_sec=0.5)
             self.cross_in_fov = True
-            if self.calculate_delta_y(self.cy_filtered) > self.dy_precheck_thresh:
+            # Use filtered cy values for delta y check
+            avg_filtered_dy, _ = self.calculate_delta_y(self.cy_filtered)
+            if avg_filtered_dy > self.dy_precheck_thresh:
                 cross_msg.data = "approach_over"
-                self.get_logger().info("Crossing approaching, over alignment threshold.",throttle_duration_sec=0.5)
-                # Publish crossing message
+                self.get_logger().info("Crossing approaching, over alignment threshold.", throttle_duration_sec=0.5)
                 self.cross_detect_pub.publish(cross_msg)
-                self.delta_y_pub.publish(Float32(data=self.calculate_delta_y(self.cy_filtered)))
+                self.delta_y_pub.publish(Float32(data=avg_filtered_dy))
             else:
-                # Publish crossing message
                 cross_msg.data = "approach"
                 self.cross_detect_pub.publish(cross_msg)
-        else:
-            # Less than 3 centroids detected, not a crossing
+        elif len(self.cx_filtered) in [4, 3]:
             if self.cross_in_fov:
-                # Set flag for close crossing detection
                 self.get_logger().info("Crossing no longer in FOV.")
                 self.cross_in_prox = True
-                # Publish crossing message
+                self.cross_in_fov = False
                 cross_msg.data = "xing"
                 self.cross_detect_pub.publish(cross_msg)
-            else:
-                # No crossing detected
+            elif self.cross_in_prox and not self.cross_in_fov:
                 self.get_logger().info("No crossing detected.", throttle_duration_sec=2.0)
-                # Reset flags
                 self.cross_in_prox = False
                 self.cross_in_fov = False
-                # Publish crossing message
                 cross_msg.data = "none"
                 self.cross_detect_pub.publish(cross_msg)
-            self.cross_in_fov = False
+        else:
+            cross_msg.data = "none"
+            self.cross_detect_pub.publish(cross_msg)
+            #self.cross_in_fov = False
             
             
     def calculate_delta_y(self, cy_array):
         '''
         Calculate the average delta y between centroids in the cy_array
+        Returns a tuple: (avg_delta_y, std_delta_y)
         '''
-        if len(cy_array) < 3:
-            return 0.0
+        if len(cy_array) < 2:
+            return (0.0, 0.0)
         
-        # Calculate deltas
         deltas = np.diff(cy_array)
-        # Calculate average delta
         avg_delta_y = np.mean(deltas)
+        std_delta_y = np.std(deltas)
         
-        return avg_delta_y
-    
+        return (avg_delta_y, std_delta_y)
+        
     def wait_for_ros_time(self):
         self.get_logger().info('Waiting for ROS time to become active...')
         while rclpy.ok():
