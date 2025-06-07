@@ -86,7 +86,7 @@ class RobotCtrl(Node):
         
         # Temp Params for Preset Path tuning
         # Left Turn Path
-        self.declare_parameter('pathL_1', 0.23)
+        self.declare_parameter('pathL_1', 0.20)
         self.declare_parameter('pathL_2', 0.0)
         self.declare_parameter('pathL_3', 0.31)
         self.declare_parameter('pathL_4', 0.24)
@@ -139,8 +139,8 @@ class RobotCtrl(Node):
         self.moving = False
 
         #Paths and TS
-        self.ts_left = True
-        self.ts_right = False
+        self.ts_left = False
+        self.ts_right = True
         self.ts_straight = False
         
         self.ts_stop = False
@@ -437,7 +437,7 @@ class RobotCtrl(Node):
                 self.goal_received = False
                 self.current_goal_index +=2
             else:
-                self.cmd_vel.linear.x = 0.2 * ed
+                self.cmd_vel.linear.x = 0.4 * ed
                 #limit the linear velocity to a maximum of 0.2 m/s
                 if self.cmd_vel.linear.x > 0.2:
                     self.cmd_vel.linear.x = 0.2
