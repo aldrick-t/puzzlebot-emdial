@@ -1,0 +1,61 @@
+robot_ctrl:
+  ros__parameters:
+    # Logging level
+    log_severity: "DEBUG"
+
+    # Command input topic
+    cmd_input_topic: "line_cmd"
+
+    # PID gains for velocity control
+    Kp_v: 0.0
+    Ki_v: 0.0
+    Kd_v: 0.0
+
+    # PID gains for angular control
+    Kp_w: 0.8
+    Ki_w: 0.1
+    Kd_w: 0.005
+
+    # Max speed dynamic parameters
+    v_limit: 0.15
+    w_limit: 1.0
+
+    # Max speed slow mode parameters
+    v_limit_slow: 0.2
+    w_limit_slow: 1.0
+
+    # Absolute maximum safety speed limits
+    v_limit_max: 0.7
+    w_limit_max: 1.8
+
+    # Bend minimum speeds
+    v_limit_min: 0.1
+    w_limit_min: 0.1
+
+    # Activation and detection toggles
+    ctrl_activate: false
+    detect_tl: true
+    detect_ts: true
+
+    # Curve detection threshold
+    curve_detect_thresh: 0.3
+
+    # Preset path tuning parameters
+    pathL_1: 0.20
+    pathL_2: 0.0
+    pathL_3: 0.31
+    pathL_4: 0.24
+    pathR_1: 0.23
+    pathR_2: 0.0
+    pathR_3: 0.33
+    pathR_4: -0.24
+    pathS_1: 0.40
+    pathS_2: 0.0
+
+    # Traffic sign testing flags
+    ts_left: false
+    ts_right: false
+    ts_straight: false
+    ts_stop: false
+    ts_give: false
+    ts_work: false
