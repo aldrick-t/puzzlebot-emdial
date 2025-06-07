@@ -396,6 +396,17 @@ class RobotCtrl(Node):
             self.xg = self.path[self.current_goal_index] # Goal position x[m]
             self.yg = self.path[self.current_goal_index + 1] # Goal position y[m]
             self.goal_received = True
+
+    def cancel_path(self):
+        self.get_logger().info("Path cancelled, stopping robot.")
+        self.cmd_vel.linear.x = 0.0
+        self.cmd_vel.angular.z = 0.0
+        self.cmd_vel_pub.publish(self.cmd_vel)
+        self.goal_received = False
+        self.current_goal_index = -1
+        self.xing = False
+        self.aproach = False
+        self.crossing = False
         
 
     def odometry(self):
@@ -571,15 +582,20 @@ class RobotCtrl(Node):
             self.cmd_vel_pub.publish(self.cmd_vel)
             return
         
-        if self.xing and self.aproach and not self.crossing:
-            #Stop motors before odometry
-            self.cmd_vel.linear.x = 0.0
-            self.cmd_vel.angular.z = 0.0
-            self.cmd_vel_pub.publish(self.cmd_vel)
-            self.aproach = False
-            self.xing = False
-            self.crossing = True
+        # If line command is zero cancel path and stop
+        if self.line_cmd == 0.0 and self.crossing:
+            self.cancel_path()
             return
+        
+        if self.xing and self.aproach and not self.crossing:
+            if self.tl_green:
+                #Stop motors before odometry
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.cmd_vel_pub.publish(self.cmd_vel)
+                self.aproach = False
+                self.xing = False
+                self.crossing = True
         
         if self.crossing:
             self.odometry()
@@ -641,7 +657,7 @@ class RobotCtrl(Node):
             return
 
         # Traffic detection enabled: apply traffic light logic
-        if self.tl_red or self.moving:
+        if self.tl_red or not self.moving:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
             #self.soft_stop()
             self.cmd_vel.linear.x = 0.0
