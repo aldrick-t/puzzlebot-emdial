@@ -8,7 +8,7 @@ from cv_bridge import CvBridge
 from ultralytics import YOLO
 import cv2
 import numpy as np
-
+from rcl_interfaces.msg import SetParametersResult
 class TLTSDetector(Node):
     def __init__(self):
         super().__init__('tlts_detector')
@@ -17,16 +17,39 @@ class TLTSDetector(Node):
         # Create a named window for display
         self.window_name = 'Traffic Light Detection'
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-
-        # Confidence thresholds
-        self.tl_conf_threshold = 0.78  # Threshold for traffic lights
-        self.ts_conf_threshold = 0.5   # Threshold for traffic signs
+        
+        # Declare parameters for detection thresholds
+        self.declare_parameter('tl_conf_threshold', 0.68)  # Traffic light confidence threshold
+        self.declare_parameter('ts_conf_threshold', 0.78)  # Traffic sign confidence threshold
+        
+        self.tl_conf_threshold = self.get_parameter('tl_conf_threshold').get_parameter_value().double_value
+        self.ts_conf_threshold = self.get_parameter('ts_conf_threshold').get_parameter_value().double_value
+        
+        # Bias Parameters for score calculation
+        self.declare_parameter('bias_brightness', 0.4)
+        self.declare_parameter('bias_size', 0.5)
+        self.declare_parameter('bias_position', 0.1)
+        
+        # Load biases from parameters
+        self.biases['brightness'] = self.get_parameter('bias_brightness').get_parameter_value().double_value
+        self.biases['size'] = self.get_parameter('bias_size').get_parameter_value().double_value
+        self.biases['position'] = self.get_parameter('bias_position').get_parameter_value().double_value
+        # Ensure biases sum to 1
+        total_bias = sum(self.biases.values())
+        if total_bias != 1.0:
+            self.get_logger().warn(f'Biases do not sum to 1: {total_bias}. Normalizing biases.')
+            for key in self.biases:
+                self.biases[key] /= total_bias
+        else:
+            self.get_logger().info(f'Biases initialized: {self.biases}')
+        
+        self.add_on_set_parameters_callback(self.parameter_callback)
 
         # Biases for score calculation (sum must equal 1)
         self.biases = {
-            'brightness': 0.2,
-            'size': 0.3,
-            'position': 0.5
+            'brightness': 0.4,
+            'size': 0.5,
+            'position': 0.1
         }
 
         # Subscribe to camera feed
@@ -77,6 +100,28 @@ class TLTSDetector(Node):
             'ts_work':     (100,100,255),
             'unknown':     (255,255,255),
         }
+        
+    def parameter_callback(self, params):
+        for param in params:
+            if param.name == 'tl_conf_threshold':
+                self.tl_conf_threshold = param.value
+                self.get_logger().info(f'Traffic light confidence threshold set to {self.tl_conf_threshold}')
+            elif param.name == 'ts_conf_threshold':
+                self.ts_conf_threshold = param.value
+                self.get_logger().info(f'Traffic sign confidence threshold set to {self.ts_conf_threshold}')
+            elif param.name in self.biases:
+                self.biases[param.name] = param.value
+                self.get_logger().info(f'Bias {param.name} set to {self.biases[param.name]}')
+        
+        # Normalize biases if they do not sum to 1
+        total_bias = sum(self.biases.values())
+        if total_bias != 1.0:
+            for key in self.biases:
+                self.biases[key] /= total_bias
+            self.get_logger().warn(f'Biases normalized: {self.biases}')
+        
+        return SetParametersResult(successful=True)
+    
 
     def image_callback(self, img_msg: Image):
         try:
@@ -172,6 +217,7 @@ class TLTSDetector(Node):
         tl_msg = String(data=best_tl[0])
         self.publisher_ts.publish(ts_msg)
         self.publisher_tl.publish(tl_msg)
+        
 
 
 def main(args=None):
