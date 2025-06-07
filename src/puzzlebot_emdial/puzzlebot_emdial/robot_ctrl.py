@@ -437,7 +437,7 @@ class RobotCtrl(Node):
                 self.goal_received = False
                 self.current_goal_index +=2
             else:
-                self.cmd_vel.linear.x = 0.2 * ed
+                self.cmd_vel.linear.x = 0.4 * ed
                 #limit the linear velocity to a maximum of 0.2 m/s
                 if self.cmd_vel.linear.x > 0.2:
                     self.cmd_vel.linear.x = 0.2
