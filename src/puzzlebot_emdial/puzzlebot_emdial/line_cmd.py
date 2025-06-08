@@ -155,8 +155,8 @@ class LineCmd(Node):
             cmd_msg_t = Float32()
             cmd_msg_t.data = None
             self.line_cmd_pub.publish(cmd_msg_t)
-            return  # Don't publish anything
-
+            return
+        
         # Store current command for next round
         self.last_cmd_msg = cmd_msg
 
