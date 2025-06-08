@@ -154,6 +154,9 @@ class RobotCtrl(Node):
         self.ts_start_time_reduce_speed = None
         self.reduced_sign_speed = False
 
+        self.ts_stop_time = None
+        self.stoppin_flag = False
+
         # Path
         self.goal_received = False
         self.current_goal_index = -1
@@ -628,6 +631,20 @@ class RobotCtrl(Node):
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now
 
+        if self.detect_ts and self.ts_stop:
+            if self.ts_stop_time is None:
+                self.ts_stop_time = now
+                self.get_logger().info("STOOOP: Stopping for 10 seconds")
+
+            elapsed_secs = (now - self.ts_stop_time).nanoseconds * 1e-9
+            if elapsed_secs <= 10.0:
+                self.stoppin_flag = True
+            else:
+                self.ts_work = False
+                self.stoppin_flag = False
+                self.ts_stop_time = None
+                self.get_logger().info("STOOP: 10 Seconds ELAPSED")
+
         if self.detect_ts and self.ts_work:
             if self.ts_start_time_reduce_speed is None:
                 self.ts_start_time_reduce_speed = now
@@ -679,7 +696,7 @@ class RobotCtrl(Node):
             return
 
         # Traffic detection enabled: apply traffic light logic
-        if self.ts_stop:
+        if self.stoppin_flag:
             self.get_logger().info("Traffic Sign STOP, stopping robot.", throttle_duration_sec=1.0)
             #self.soft_stop()
             self.cmd_vel.linear.x = 0.0
