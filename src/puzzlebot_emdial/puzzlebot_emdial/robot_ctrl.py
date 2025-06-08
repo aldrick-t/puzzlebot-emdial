@@ -599,6 +599,7 @@ class RobotCtrl(Node):
         # If line command is zero cancel path and stop
         if self.cancel_path_toggle:
             self.cancel_path()
+
             return
         
         if self.xing and self.approach and not self.crossing:
@@ -610,11 +611,8 @@ class RobotCtrl(Node):
                 self.approach = False
                 self.xing = False
                 self.crossing = True
+
                 
-            self.cmd_vel.linear.x = 0.0
-            self.cmd_vel.angular.z = 0.0
-            self.cmd_vel_pub.publish(self.cmd_vel)
-        
         if self.crossing:
             self.odometry()
             return
@@ -675,7 +673,7 @@ class RobotCtrl(Node):
             return
 
         # Traffic detection enabled: apply traffic light logic
-        if self.ts_stop:
+        if not self.moving:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
             #self.soft_stop()
             self.cmd_vel.linear.x = 0.0
