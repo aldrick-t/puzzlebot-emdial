@@ -99,14 +99,7 @@ class RobotCtrl(Node):
         self.declare_parameter('pathS_1', 0.40)
         self.declare_parameter('pathS_2', 0.0)
         
-        # Temp TS Params for Testing
-        self.declare_parameter('ts_left', False)
-        self.declare_parameter('ts_right', False)
-        self.declare_parameter('ts_straight', False)
-        self.declare_parameter('ts_stop', False)
-        self.declare_parameter('ts_give', False)
-        self.declare_parameter('ts_work', False)
-    
+        
         self.add_on_set_parameters_callback(self.parameter_callback)
         # Variables
         # Velocity PID gains
@@ -142,26 +135,18 @@ class RobotCtrl(Node):
         # Traffic light state flags
         self.tl_red = False
         self.tl_yellow = False
-        self.tl_green = False
-        self.moving = False
+        self.tl_green = True
+        self.moving = True
 
         #Paths and TS
-        # self.ts_left = False
-        # self.ts_right = True
-        # self.ts_straight = False
+        self.ts_left = False
+        self.ts_right = False
+        self.ts_straight = False
         
-        # self.ts_stop = False
-        # self.ts_give = False
-        # self.ts_work = False
+        self.ts_stop = False
+        self.ts_give = False
+        self.ts_work = False
 
-        # TS Flags as Params for Testing
-        self.ts_left = self.get_parameter('ts_left').value
-        self.ts_right = self.get_parameter('ts_right').value
-        self.ts_straight = self.get_parameter('ts_straight').value
-        self.ts_stop = self.get_parameter('ts_stop').value
-        self.ts_give = self.get_parameter('ts_give').value
-        self.ts_work = self.get_parameter('ts_work').value
-        
         self.ts_start_time_reduce_speed = None
         self.reduced_sign_speed = False
 
@@ -196,7 +181,7 @@ class RobotCtrl(Node):
         self.path = self.path_left
 
         # Cross 
-        self.aproach = False
+        self.approach = False
         self.xing = False
         self.no_cross = False
         
@@ -334,26 +319,6 @@ class RobotCtrl(Node):
                 self.path_straight[1] = param.value
                 self.get_logger().info(f"pathS_2 set to {param.value}")
             # Live path tuning parameters end    
-            # Traffic sign parameters
-            elif param.name == 'ts_left':
-                self.ts_left = param.value
-                self.get_logger().info(f"ts_left set to {param.value}")
-            elif param.name == 'ts_right':
-                self.ts_right = param.value
-                self.get_logger().info(f"ts_right set to {param.value}")
-            elif param.name == 'ts_straight':
-                self.ts_straight = param.value
-                self.get_logger().info(f"ts_straight set to {param.value}")
-            elif param.name == 'ts_stop':
-                self.ts_stop = param.value
-                self.get_logger().info(f"ts_stop set to {param.value}")
-            elif param.name == 'ts_give':
-                self.ts_give = param.value
-                self.get_logger().info(f"ts_give set to {param.value}")
-            elif param.name == 'ts_work':
-                self.ts_work = param.value
-                self.get_logger().info(f"ts_work set to {param.value}")
-            # Traffic sign parameters end
         
         return SetParametersResult(successful=True)
     
@@ -375,7 +340,7 @@ class RobotCtrl(Node):
         if (msg.data =='xing'):
             self.xing = True
         elif (msg.data == 'approach'):
-            self.aproach = True
+            self.approach = True
         else:
             pass
         
@@ -424,13 +389,24 @@ class RobotCtrl(Node):
         if self.current_goal_index + 1 >= len(self.path):
             self.get_logger().info('Reached end of path, no more points.')
             self.xing = False
-            self.aproach = False
+            self.approach = False
             self.crossing = False
             self.current_goal_index = -1
         else:
             self.xg = self.path[self.current_goal_index] # Goal position x[m]
             self.yg = self.path[self.current_goal_index + 1] # Goal position y[m]
             self.goal_received = True
+
+    def cancel_path(self):
+        self.get_logger().info("Path cancelled, stopping robot.")
+        self.cmd_vel.linear.x = 0.0
+        self.cmd_vel.angular.z = 0.0
+        self.cmd_vel_pub.publish(self.cmd_vel)
+        self.goal_received = False
+        self.current_goal_index = -1
+        self.xing = False
+        self.approach = False
+        self.crossing = False
         
 
     def odometry(self):
@@ -537,7 +513,7 @@ class RobotCtrl(Node):
         self.get_logger().debug(f"RECEIVED Traffic light data: {raw}", throttle_duration_sec=1.0)        
 
         # set flags based on which signs are present
-        if 'tl_stop' in signs:
+        if 'ts_stop' in signs:
             self.ts_left = False
             self.ts_right = False
             self.ts_straight = False
@@ -545,38 +521,38 @@ class RobotCtrl(Node):
             self.ts_give = False
             self.ts_work = False
             self.moving = False
-        elif 'tl_giveway' in signs:
+        elif 'ts_giveway' in signs:
             self.ts_left = False
             self.ts_right = False
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = True
             self.ts_work = False
-        elif 'tl_work' in signs:
+        elif 'ts_work' in signs:
             self.ts_left = False
             self.ts_right = False
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = True
-        elif 'tl_left' in signs:
+        elif 'ts_left' in signs:
             self.ts_left = True
             self.ts_right = False
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = False
-        elif 'tl_right' in signs:
+        elif 'ts_right' in signs:
             self.ts_left = False
             self.ts_right = True
             self.ts_straight = False
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = False
-        elif 'tl_straight' in signs:
+        elif 'ts_straight' in signs:
             self.ts_left = False
             self.ts_right = False
-            self.ts_straight = False
+            self.ts_straight = True
             self.ts_stop = False
             self.ts_give = False
             self.ts_work = False
@@ -606,15 +582,20 @@ class RobotCtrl(Node):
             self.cmd_vel_pub.publish(self.cmd_vel)
             return
         
-        if self.xing and self.aproach and not self.crossing:
-            #Stop motors before odometry
-            self.cmd_vel.linear.x = 0.0
-            self.cmd_vel.angular.z = 0.0
-            self.cmd_vel_pub.publish(self.cmd_vel)
-            self.aproach = False
-            self.xing = False
-            self.crossing = True
+        # If line command is zero cancel path and stop
+        if self.line_cmd == 0.0 and self.crossing:
+            self.cancel_path()
             return
+        
+        if self.xing and self.approach and not self.crossing:
+            if self.tl_green:
+                #Stop motors before odometry
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.cmd_vel_pub.publish(self.cmd_vel)
+                self.approach = False
+                self.xing = False
+                self.crossing = True
         
         if self.crossing:
             self.odometry()
@@ -676,7 +657,7 @@ class RobotCtrl(Node):
             return
 
         # Traffic detection enabled: apply traffic light logic
-        if self.tl_red or self.moving:
+        if self.tl_red or not self.moving:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
             #self.soft_stop()
             self.cmd_vel.linear.x = 0.0

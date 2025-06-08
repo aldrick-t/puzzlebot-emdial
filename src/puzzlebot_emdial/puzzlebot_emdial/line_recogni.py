@@ -61,6 +61,10 @@ class LineRecogni(Node):
         self.declare_parameter('bin_thresh', 80) # Threshold for the binary cutoff thresh
         # Personalization parameters
         self.declare_parameter('resolution_factor', 1)  # Factor to  scale resolution of the overlay 
+        # Contour area parameters
+        self.declare_parameter('min_cnt_area', 100)  # Minimum contour area for mid-range line detection
+        self.declare_parameter('max_cnt_area', 10000)  # Maximum contour area for mid-range line detection
+        self.declare_parameter('cnt_area_thresh_mode', 'fixed')  # Mode for contour area thresholding
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
@@ -70,6 +74,9 @@ class LineRecogni(Node):
         self.midfield_range = 1 - self.get_parameter('midfield_range').value
         self.proximal_range = 1 - self.get_parameter('proximal_range').value
         self.bin_thresh = self.get_parameter('bin_thresh').value
+        self.min_cnt_area = self.get_parameter('min_cnt_area').value
+        self.max_cnt_area = self.get_parameter('max_cnt_area').value
+        self.cnt_area_thresh_mode = self.get_parameter('cnt_area_thresh_mode').value
         
         # Program variables
         self.prox_c_height = None  # Proximal cropped image height
@@ -115,6 +122,18 @@ class LineRecogni(Node):
             elif param.name == 'bin_thresh':
                 self.bin_thresh = param.value
                 self.get_logger().info(f"Bin. threshold set to {self.bin_thresh}")
+            elif param.name == 'min_cnt_area':
+                self.min_cnt_area = param.value
+                self.get_logger().info(f"Min. contour area set to {self.min_cnt_area}")
+            elif param.name == 'max_cnt_area':
+                self.max_cnt_area = param.value
+                self.get_logger().info(f"Max. contour area set to {self.max_cnt_area}")
+            elif param.name == 'cnt_area_thresh_mode':
+                if param.value not in ['fixed', 'dynamic']:
+                    self.get_logger().error(f"Invalid contour area threshold mode: {param.value}. Must be 'fixed' or 'dynamic'.")
+                    return SetParametersResult(successful=False, reason="Invalid contour area threshold mode")
+                self.cnt_area_thresh_mode = param.value
+                self.get_logger().info(f"Contour area threshold mode set to {self.cnt_area_thresh_mode}")
         
         return SetParametersResult(successful=True)
     
@@ -331,9 +350,28 @@ class LineRecogni(Node):
         # Parameters: max(contours, key=cv2.contourArea)
         max_contour = max(contours, key=cv2.contourArea)
         
-        # Calculate all moments for all contours
-        moments = [cv2.moments(cnt) for cnt in contours]
+        # Sort contours by area
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)
         
+        if self.cnt_area_thresh_mode == 'dynamic':
+            # Dynamic contour area thresholding
+            # Calculate dynamic thresholds based on the largest contour area
+            max_area = cv2.contourArea(max_contour)
+            min_area = max(self.min_cnt_area, int(max_area * 0.50))  # Min area is a % of the largest contour area
+            moments = [cv2.moments(cnt) 
+                    for cnt in contours 
+                    if cv2.contourArea(cnt) > min_area 
+                    and cv2.contourArea(cnt) < max_area
+                    ]
+            
+        elif self.cnt_area_thresh_mode == 'fixed':
+            # Compute moments for all contours within area threshold (min, max)
+            moments = [cv2.moments(cnt) 
+                    for cnt in contours 
+                    if cv2.contourArea(cnt) > self.min_cnt_area 
+                    and cv2.contourArea(cnt) < self.max_cnt_area
+                    ]
+            
         # Filter out contours with zero area
         valid_moments = [m for m in moments if m["m00"] != 0]
         if not valid_moments:
