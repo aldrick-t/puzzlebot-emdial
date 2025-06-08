@@ -29,6 +29,8 @@ class TLTSDetector(Node):
         self.ts_conf_threshold = self.get_parameter('ts_conf_threshold').get_parameter_value().double_value
         self.tl_green_threshold = self.get_parameter('tl_green_threshold').get_parameter_value().double_value
         self.tl_yellow_threshold = self.get_parameter('tl_yellow_threshold').get_parameter_value().double_value
+        self.tl_red_threshold = self.get_parameter('tl_red_threshold').get_parameter_value().double_value
+
         
         # Bias Parameters for score calculation
         self.declare_parameter('bias_brightness', 0.4)
@@ -151,7 +153,7 @@ class TLTSDetector(Node):
         best_ts = ('none', 0.0)
         best_ts_conf = 0.0
         best_tl = ('none', 0.0)
-        best_tl_score = 0.0
+        best_tl_conf = 0.0  # used to track best tl_ detection
 
         if boxes.shape[0] > 0:
             for box, conf, cls_id in zip(boxes, confs, class_ids):
@@ -166,51 +168,42 @@ class TLTSDetector(Node):
                     if conf > best_ts_conf:
                         best_ts_conf = conf
                         best_ts = (class_name, conf)
+
                     # Draw TS bounding box and label
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                     label = f"{class_name}: {conf:.2f}"
                     cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-                # Traffic light logic
-                elif class_name.startswith('tl_'):
-                    if conf < self.tl_conf_threshold:
+                # Traffic light logic for each tl_ class separately
+                elif class_name == 'tl_red':
+                    if conf < self.tl_red_threshold:
                         continue
-
-                    # # Compute size metric (normalized area)
-                    # w = x2 - x1
-                    # h = y2 - y1
-                    # area = w * h
-                    # size_norm = area / frame_area
-
-                    # # Compute position metric (centeredness)
-                    # centroid_x = (x1 + x2) / 2.0
-                    # pos_score = 1.0 - abs(centroid_x - frame_center_x) / frame_center_x
-                    # pos_score = max(0.0, min(1.0, pos_score))
-
-                    # # Compute brightness metric (normalized mean intensity)
-                    # roi = frame[y1:y2, x1:x2]
-                    # if roi.size > 0:
-                    #     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                    #     brightness_norm = float(np.mean(gray)) / 255.0
-                    # else:
-                    #     brightness_norm = 0.0
-
-                    # # Compute combined score using biases
-                    # score = (self.biases['brightness'] * brightness_norm +
-                    #          self.biases['size']       * size_norm +
-                    #          self.biases['position']   * pos_score)
-
-                    # Update best TL candidate
-                    if conf > best_tl_score:
-                        best_tl_score = conf
+                    if conf > best_tl_conf:
+                        best_tl_conf = conf
                         best_tl = (class_name, conf)
 
-                    # Draw TL bounding box and label with score
+                elif class_name == 'tl_yellow':
+                    if conf < self.tl_yellow_threshold:
+                        continue
+                    if conf > best_tl_conf:
+                        best_tl_conf = conf
+                        best_tl = (class_name, conf)
+
+                elif class_name == 'tl_green':
+                    if conf < self.tl_green_threshold:
+                        continue
+                    if conf > best_tl_conf:
+                        best_tl_conf = conf
+                        best_tl = (class_name, conf)
+
+                # Draw TL bounding box and label if it was any tl_ class
+                if class_name.startswith('tl_') and conf >= 0.01:
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    label = f"{class_name}: {conf:.2f}, score: {conf:.2f}"
+                    label = f"{class_name}: {conf:.2f}"
                     cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
         else:
             cv2.putText(frame, 'No detection', (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
@@ -224,7 +217,8 @@ class TLTSDetector(Node):
         tl_msg = String(data=best_tl[0])
         self.publisher_ts.publish(ts_msg)
         self.publisher_tl.publish(tl_msg)
-        
+        self.get_logger().info(f'Published TS: "{ts_msg.data}"')
+        self.get_logger().info(f'Published TL: "{tl_msg.data}"')     
 
 
 def main(args=None):
