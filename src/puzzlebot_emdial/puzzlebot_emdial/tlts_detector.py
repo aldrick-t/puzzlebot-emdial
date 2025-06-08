@@ -19,23 +19,30 @@ class TLTSDetector(Node):
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
         # Declare parameters for detection thresholds
-        self.declare_parameter('tl_conf_threshold', 0.68)  # Traffic light confidence threshold
         self.declare_parameter('ts_conf_threshold', 0.78)  # Traffic sign confidence threshold
+        self.declare_parameter('tl_green_threshold', 0.68)  # Traffic light confidence threshold
+        self.declare_parameter('tl_yellow_threshold', 0.15)  # Traffic light yellow confidence threshold
+        self.declare_parameter('tl_red_threshold', 0.45)  # Traffic light yellow confidence threshold
+
+
         
-        self.tl_conf_threshold = self.get_parameter('tl_conf_threshold').get_parameter_value().double_value
         self.ts_conf_threshold = self.get_parameter('ts_conf_threshold').get_parameter_value().double_value
+        self.tl_green_threshold = self.get_parameter('tl_green_threshold').get_parameter_value().double_value
+        self.tl_yellow_threshold = self.get_parameter('tl_yellow_threshold').get_parameter_value().double_value
         
         # Bias Parameters for score calculation
         self.declare_parameter('bias_brightness', 0.4)
         self.declare_parameter('bias_size', 0.5)
         self.declare_parameter('bias_position', 0.1)
+
+        self.biases = [0.0,0.0,0.0]
         
         # Load biases from parameters
-        self.biases['brightness'] = self.get_parameter('bias_brightness').get_parameter_value().double_value
-        self.biases['size'] = self.get_parameter('bias_size').get_parameter_value().double_value
-        self.biases['position'] = self.get_parameter('bias_position').get_parameter_value().double_value
+        self.biases[0] = self.get_parameter('bias_brightness').get_parameter_value().double_value
+        self.biases[1] = self.get_parameter('bias_size').get_parameter_value().double_value
+        self.biases[2] = self.get_parameter('bias_position').get_parameter_value().double_value
         # Ensure biases sum to 1
-        total_bias = sum(self.biases.values())
+        total_bias = sum(self.biases)
         if total_bias != 1.0:
             self.get_logger().warn(f'Biases do not sum to 1: {total_bias}. Normalizing biases.')
             for key in self.biases:
@@ -170,38 +177,38 @@ class TLTSDetector(Node):
                     if conf < self.tl_conf_threshold:
                         continue
 
-                    # Compute size metric (normalized area)
-                    w = x2 - x1
-                    h = y2 - y1
-                    area = w * h
-                    size_norm = area / frame_area
+                    # # Compute size metric (normalized area)
+                    # w = x2 - x1
+                    # h = y2 - y1
+                    # area = w * h
+                    # size_norm = area / frame_area
 
-                    # Compute position metric (centeredness)
-                    centroid_x = (x1 + x2) / 2.0
-                    pos_score = 1.0 - abs(centroid_x - frame_center_x) / frame_center_x
-                    pos_score = max(0.0, min(1.0, pos_score))
+                    # # Compute position metric (centeredness)
+                    # centroid_x = (x1 + x2) / 2.0
+                    # pos_score = 1.0 - abs(centroid_x - frame_center_x) / frame_center_x
+                    # pos_score = max(0.0, min(1.0, pos_score))
 
-                    # Compute brightness metric (normalized mean intensity)
-                    roi = frame[y1:y2, x1:x2]
-                    if roi.size > 0:
-                        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                        brightness_norm = float(np.mean(gray)) / 255.0
-                    else:
-                        brightness_norm = 0.0
+                    # # Compute brightness metric (normalized mean intensity)
+                    # roi = frame[y1:y2, x1:x2]
+                    # if roi.size > 0:
+                    #     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                    #     brightness_norm = float(np.mean(gray)) / 255.0
+                    # else:
+                    #     brightness_norm = 0.0
 
-                    # Compute combined score using biases
-                    score = (self.biases['brightness'] * brightness_norm +
-                             self.biases['size']       * size_norm +
-                             self.biases['position']   * pos_score)
+                    # # Compute combined score using biases
+                    # score = (self.biases['brightness'] * brightness_norm +
+                    #          self.biases['size']       * size_norm +
+                    #          self.biases['position']   * pos_score)
 
                     # Update best TL candidate
-                    if score > best_tl_score:
-                        best_tl_score = score
-                        best_tl = (class_name, score)
+                    if conf > best_tl_score:
+                        best_tl_score = conf
+                        best_tl = (class_name, conf)
 
                     # Draw TL bounding box and label with score
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    label = f"{class_name}: {conf:.2f}, score: {score:.2f}"
+                    label = f"{class_name}: {conf:.2f}, score: {conf:.2f}"
                     cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         else:
