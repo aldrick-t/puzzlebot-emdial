@@ -147,6 +147,7 @@ class LineCmd(Node):
         # Process line recognition data
         line_recogni_data = msg.data
         # Process line command
+        self.lost_line = False
         cmd_msg = self.process_line_cmd(process_img_data, line_recogni_data)
 
         # Check lost line before crossing
@@ -154,6 +155,7 @@ class LineCmd(Node):
             self.get_logger().info("Center Line before crossing!!!")
             cmd_msg_t = Float32()
             cmd_msg_t.data = None
+            self.lost_line = True
             self.line_cmd_pub.publish(cmd_msg_t)
             return
         
@@ -277,36 +279,40 @@ class LineCmd(Node):
             self.cy_filtered = cy_sorted[valid_idxs]
         
         # Check number of centroids detected
-        if len(self.cx_filtered) in [5, 6, 7] and not self.cross_in_prox:
+        if len(self.cx_filtered) > 4:
             self.get_logger().info("Crossing detected!", throttle_duration_sec=0.5)
             self.cross_in_fov = True
             # Use filtered cy values for delta y check
             avg_filtered_dy, _ = self.calculate_delta_y(self.cy_filtered)
             if avg_filtered_dy > self.dy_precheck_thresh:
                 cross_msg.data = "approach_over"
-                self.get_logger().info("Crossing approaching, over alignment threshold.", throttle_duration_sec=0.5)
+                self.get_logger().info("Crossing approaching, over alignment threshold.", throttle_duration_sec=2.0)
                 self.cross_detect_pub.publish(cross_msg)
                 self.delta_y_pub.publish(Float32(data=avg_filtered_dy))
             else:
                 cross_msg.data = "approach"
                 self.cross_detect_pub.publish(cross_msg)
-        elif len(self.cx_filtered) in [4, 3]:
-            if self.cross_in_fov:
-                self.get_logger().info("Crossing no longer in FOV.")
-                self.cross_in_prox = True
-                self.cross_in_fov = False
+            
+            if self.lost_line:   
+                self.get_logger().info("Crossing detected after losing center line. Assuming AT CROSSING.", throttle_duration_sec=2.0)
                 cross_msg.data = "xing"
-                self.cross_detect_pub.publish(cross_msg)
-            elif self.cross_in_prox and not self.cross_in_fov:
+                self.cross_detect_pub.publish(cross_msg) 
+             
+        else:
+            if self.cross_in_fov and self.lost_line:
+                # If crossing was previously detected and now lost
+                self.get_logger().info("Crossing no longer in view, Assuming WITHIN Crossing", throttle_duration_sec=2.0)
+                self.cross_in_fov = False
+                cross_msg.data = "within"
+            else:
                 self.get_logger().info("No crossing detected.", throttle_duration_sec=2.0)
-                self.cross_in_prox = False
                 self.cross_in_fov = False
                 cross_msg.data = "none"
-                self.cross_detect_pub.publish(cross_msg)
-        else:
-            cross_msg.data = "none"
-            self.cross_detect_pub.publish(cross_msg)
-            #self.cross_in_fov = False
+            
+                
+            
+                
+           
             
             
     def calculate_delta_y(self, cy_array):
