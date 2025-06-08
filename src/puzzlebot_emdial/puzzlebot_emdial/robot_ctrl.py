@@ -398,7 +398,7 @@ class RobotCtrl(Node):
             self.goal_received = True
 
     def cancel_path(self):
-        self.get_logger().info("Path cancelled, stopping robot.")
+        self.get_logger().info("Path CANCELLED, stopping robot.")
         self.cmd_vel.linear.x = 0.0
         self.cmd_vel.angular.z = 0.0
         self.cmd_vel_pub.publish(self.cmd_vel)
@@ -495,7 +495,7 @@ class RobotCtrl(Node):
             self.tl_yellow = False
 
         if 'none' in colors:
-            self.get_logger().debug(f"None detected, last color state remains.", throttle_duration_sec=1.0)
+            self.get_logger().debug(f"None detected, last color state remains.", throttle_duration_sec=5.0)
             
         self.traffic_light = colors
     
@@ -510,7 +510,7 @@ class RobotCtrl(Node):
         raw = msg.data or ""
         # parse into a list of color tokens
         signs = [c.strip().lower() for c in raw.split(',') if c.strip()]
-        self.get_logger().debug(f"RECEIVED Traffic light data: {raw}", throttle_duration_sec=1.0)        
+        self.get_logger().debug(f"RECEIVED Traffic light data: {raw}", throttle_duration_sec=5.0)        
 
         # set flags based on which signs are present
         if 'ts_stop' in signs:
@@ -612,7 +612,7 @@ class RobotCtrl(Node):
                 self.get_logger().info("Working: Reduce Speed")
 
             elapsed_secs = (now - self.ts_start_time_reduce_speed).nanoseconds * 1e-9
-            if elapsed_secs <= 5.0:
+            if elapsed_secs <= 10.0:
                 self.reduced_sign_speed = True
             else:
                 self.ts_work = False
@@ -620,14 +620,14 @@ class RobotCtrl(Node):
                 self.ts_start_time_reduce_speed = None
                 self.get_logger().info("Setting Normal Speed")
 
-        # 2) If we see a 'give way' sign and detect_ts == True, reduce speed for 10 seconds:
+        # If we see a 'give way' sign and detect_ts == True, reduce speed for 10 seconds:
         elif self.detect_ts and self.ts_give:
             if self.ts_start_time_reduce_speed is None:
                 self.ts_start_time_reduce_speed = now
                 self.get_logger().info("Give Way: Reduce Speed")
 
             elapsed_secs = (now - self.ts_start_time_reduce_speed).nanoseconds * 1e-9
-            if elapsed_secs <= 10.0:
+            if elapsed_secs <= 5.0:
                 self.reduced_sign_speed = True
             else:
                 self.ts_give = False
