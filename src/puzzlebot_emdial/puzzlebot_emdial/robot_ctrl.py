@@ -59,20 +59,20 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_v', 0.0)
         self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 0.5) #2.0    #1.4
+        self.declare_parameter('Kp_w', 0.58) #2.0    #1.4
         self.declare_parameter('Ki_w', 0.0) #1.2    #1.9
         self.declare_parameter('Kd_w', 0.00) #0.5   #0.09
         # Max speed dynamic parameters
         self.declare_parameter('v_limit', 0.15)
         self.declare_parameter('w_limit', 1.0)
         # Max speed slow mode dynamic parameters
-        self.declare_parameter('v_limit_slow', 0.2)
+        self.declare_parameter('v_limit_slow', 0.05)
         self.declare_parameter('w_limit_slow', 1.0)
         # Absolute maximum safety speed limits
         self.declare_parameter('v_limit_max', 0.7)
         self.declare_parameter('w_limit_max', 1.8)
         # Bend minimum speeds
-        self.declare_parameter('v_limit_min', 0.1)
+        self.declare_parameter('v_limit_min', 0.05)
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
@@ -91,12 +91,12 @@ class RobotCtrl(Node):
         self.declare_parameter('pathL_1', 0.20)
         self.declare_parameter('pathL_2', 0.0)
         self.declare_parameter('pathL_3', 0.31)
-        self.declare_parameter('pathL_4', 0.24)
+        self.declare_parameter('pathL_4', 0.20)
         # Right Turn Path
         self.declare_parameter('pathR_1', 0.23)
         self.declare_parameter('pathR_2', 0.0)
         self.declare_parameter('pathR_3', 0.33)
-        self.declare_parameter('pathR_4', -0.24)
+        self.declare_parameter('pathR_4', -0.20)
         # Straight Path
         self.declare_parameter('pathS_1', 0.40)
         self.declare_parameter('pathS_2', 0.0)
@@ -490,7 +490,7 @@ class RobotCtrl(Node):
         raw = msg.data or ""
         # parse into a list of color tokens
         colors = [c.strip().lower() for c in raw.split(',') if c.strip()]
-        self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=1.0)        
+        self.get_logger().debug(f"RECEIVED Traffic light data: {colors}", throttle_duration_sec=5.0)        
 
         # set flags based on which colors are present
         if 'tl_red' in colors:
@@ -524,7 +524,7 @@ class RobotCtrl(Node):
         raw = msg.data or ""
         # parse into a list of color tokens
         signs = [c.strip().lower() for c in raw.split(',') if c.strip()]
-        self.get_logger().debug(f"RECEIVED Traffic light data: {raw}", throttle_duration_sec=5.0)        
+        self.get_logger().debug(f"RECEIVED Traffic Sign data: {signs}", throttle_duration_sec=1.0)        
 
         # set flags based on which signs are present
         if 'ts_stop' in signs:
@@ -611,6 +611,12 @@ class RobotCtrl(Node):
                 self.approach = False
                 self.xing = False
                 self.crossing = True
+            if self.tl_red:
+                self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.cmd_vel_pub.publish(self.cmd_vel)
+                return
 
                 
         if self.crossing:
@@ -673,8 +679,8 @@ class RobotCtrl(Node):
             return
 
         # Traffic detection enabled: apply traffic light logic
-        if not self.moving:
-            self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
+        if self.ts_stop:
+            self.get_logger().info("Traffic Sign STOP, stopping robot.", throttle_duration_sec=1.0)
             #self.soft_stop()
             self.cmd_vel.linear.x = 0.0
             self.cmd_vel.angular.z = 0.0
