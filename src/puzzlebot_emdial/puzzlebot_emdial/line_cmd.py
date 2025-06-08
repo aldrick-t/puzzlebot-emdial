@@ -151,7 +151,7 @@ class LineCmd(Node):
         cmd_msg = self.process_line_cmd(process_img_data, line_recogni_data)
 
         # Check lost line before crossing
-        if line_recogni_data is None:
+        if line_recogni_data == 1500:
             self.get_logger().info("Center Line before crossing!!!")
             self.lost_line = True
             return

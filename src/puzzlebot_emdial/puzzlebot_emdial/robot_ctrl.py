@@ -329,7 +329,7 @@ class RobotCtrl(Node):
         '''
         self.line_cmd = msg.data
         
-        if self.line_cmd == None:
+        if self.line_cmd == 1500:
             self.get_logger().warn("Received None line command, setting to 0.0", throttle_duration_sec=10.0)
             self.line_cmd = 0.0
         

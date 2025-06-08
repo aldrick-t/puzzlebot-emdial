@@ -182,7 +182,7 @@ class LineRecogni(Node):
         # Publish the centroid x coordinate
         if prox_centroid_x is None:
             self.get_logger().debug("No line detected; publishing None", throttle_duration_sec=2.0)
-            prox_cx_msgInt.data = None  # Use -1 to indicate no line detected
+            prox_cx_msgInt.data = 1500  # Use -1 to indicate no line detected
         else:
             prox_cx_msgInt.data = int(prox_centroid_x)
         self.line_recogni_prox_pub.publish(prox_cx_msgInt)
