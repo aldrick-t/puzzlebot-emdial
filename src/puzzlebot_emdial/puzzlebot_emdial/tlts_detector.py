@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -5,8 +7,9 @@ from std_msgs.msg import String
 from cv_bridge import CvBridge
 from ultralytics import YOLO
 import cv2
-
-class TrafficLightDetector(Node):
+import numpy as np
+from rcl_interfaces.msg import SetParametersResult
+class TLTSDetector(Node):
     def __init__(self):
         super().__init__('tlts_detector')
         self.bridge = CvBridge()
@@ -15,33 +18,73 @@ class TrafficLightDetector(Node):
         self.window_name = 'Traffic Light Detection'
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
-        # Confidence threshold
-        self.conf_threshold = 0.78
+        # Declare parameters for detection thresholds
+        self.declare_parameter('ts_conf_threshold', 0.78)  # Traffic sign confidence threshold
+        self.declare_parameter('tl_green_threshold', 0.68)  # Traffic light confidence threshold
+        self.declare_parameter('tl_yellow_threshold', 0.15)  # Traffic light yellow confidence threshold
+        self.declare_parameter('tl_red_threshold', 0.45)  # Traffic light yellow confidence threshold
 
-        # Subscribe to your camera feed
+
+        
+        self.ts_conf_threshold = self.get_parameter('ts_conf_threshold').get_parameter_value().double_value
+        self.tl_green_threshold = self.get_parameter('tl_green_threshold').get_parameter_value().double_value
+        self.tl_yellow_threshold = self.get_parameter('tl_yellow_threshold').get_parameter_value().double_value
+        self.tl_red_threshold = self.get_parameter('tl_red_threshold').get_parameter_value().double_value
+
+        
+        # Bias Parameters for score calculation
+        self.declare_parameter('bias_brightness', 0.4)
+        self.declare_parameter('bias_size', 0.5)
+        self.declare_parameter('bias_position', 0.1)
+
+        self.biases = [0.0,0.0,0.0]
+        
+        # Load biases from parameters
+        self.biases[0] = self.get_parameter('bias_brightness').get_parameter_value().double_value
+        self.biases[1] = self.get_parameter('bias_size').get_parameter_value().double_value
+        self.biases[2] = self.get_parameter('bias_position').get_parameter_value().double_value
+        # Ensure biases sum to 1
+        total_bias = sum(self.biases)
+        if total_bias != 1.0:
+            self.get_logger().warn(f'Biases do not sum to 1: {total_bias}. Normalizing biases.')
+            for key in self.biases:
+                self.biases[key] /= total_bias
+        else:
+            self.get_logger().info(f'Biases initialized: {self.biases}')
+        
+        self.add_on_set_parameters_callback(self.parameter_callback)
+
+        # Biases for score calculation (sum must equal 1)
+        self.biases = {
+            'brightness': 0.4,
+            'size': 0.5,
+            'position': 0.1
+        }
+
+        # Subscribe to camera feed
         self.create_subscription(
             Image,
             '/video_source/raw',
             self.image_callback,
             10
         )
-        # Publisher for detected color
+
+        # Publishers for detected classes
         self.publisher_tl = self.create_publisher(
             String,
             '/traffic_light',
             10
         )
-
         self.publisher_ts = self.create_publisher(
             String,
             '/traffic_sign',
             10
         )
 
-        # Load your custom-trained YOLOv8 model
+        # Load custom-trained YOLOv8 model
         self.model = YOLO('./src/puzzlebot_emdial/models/jun5_v8v8_e_uni_tlts.pt')
 
-        # Map class indices → color strings
+        # Map class indices → names
         self.class_map = {
             0: 'tl_green',
             1: 'tl_red',
@@ -55,17 +98,39 @@ class TrafficLightDetector(Node):
         }
         # BGR colors for drawing
         self.colors = {
-            'tl_red':    (0,   0, 255),
-            'tl_yellow': (0, 255, 255),
-            'tl_green':  (0, 255,   0),
-            'ts_giveway':(255,255,255),
-            'ts_left':(100,255,255),
-            'ts_right':(255,100,255),
-            'ts_stop':(255,255,100),
-            'ts_straight':(100,255,100),
-            'ts_work':(100,100,255),
-            'unknown':(255,255,255),
+            'tl_red':      (0,   0, 255),
+            'tl_yellow':   (0, 255, 255),
+            'tl_green':    (0, 255,   0),
+            'ts_giveway':  (255,255,255),
+            'ts_left':     (100,255,255),
+            'ts_right':    (255,100,255),
+            'ts_stop':     (255,255,100),
+            'ts_straight': (100,255,100),
+            'ts_work':     (100,100,255),
+            'unknown':     (255,255,255),
         }
+        
+    def parameter_callback(self, params):
+        for param in params:
+            if param.name == 'tl_conf_threshold':
+                self.tl_conf_threshold = param.value
+                self.get_logger().info(f'Traffic light confidence threshold set to {self.tl_conf_threshold}')
+            elif param.name == 'ts_conf_threshold':
+                self.ts_conf_threshold = param.value
+                self.get_logger().info(f'Traffic sign confidence threshold set to {self.ts_conf_threshold}')
+            elif param.name in self.biases:
+                self.biases[param.name] = param.value
+                self.get_logger().info(f'Bias {param.name} set to {self.biases[param.name]}')
+        
+        # Normalize biases if they do not sum to 1
+        total_bias = sum(self.biases.values())
+        if total_bias != 1.0:
+            for key in self.biases:
+                self.biases[key] /= total_bias
+            self.get_logger().warn(f'Biases normalized: {self.biases}')
+        
+        return SetParametersResult(successful=True)
+    
 
     def image_callback(self, img_msg: Image):
         try:
@@ -74,61 +139,91 @@ class TrafficLightDetector(Node):
             self.get_logger().error(f'CV Bridge error: {e}')
             return
 
+        height, width = frame.shape[:2]
+        frame_center_x = width / 2.0
+        frame_area = width * height
+
+        # Run detection
         results = self.model(frame)[0]
+        boxes     = results.boxes.xyxy.cpu().numpy()
+        confs     = results.boxes.conf.cpu().numpy()
+        class_ids = results.boxes.cls.cpu().numpy().astype(int)
 
-        # Default messages
+        # Track best detections
         best_ts = ('none', 0.0)
+        best_ts_conf = 0.0
         best_tl = ('none', 0.0)
+        best_tl_conf = 0.0  # used to track best tl_ detection
 
-        if results.boxes.shape[0] > 0.78:
-            boxes     = results.boxes.xyxy.cpu().numpy()
-            confs     = results.boxes.conf.cpu().numpy()
-            class_ids = results.boxes.cls.cpu().numpy().astype(int)
-
+        if boxes.shape[0] > 0:
             for box, conf, cls_id in zip(boxes, confs, class_ids):
-                if conf < self.conf_threshold:
-                    continue
-
-                x1, y1, x2, y2 = map(int, box)
                 class_name = self.class_map.get(cls_id, 'unknown')
                 color = self.colors.get(class_name, self.colors['unknown'])
+                x1, y1, x2, y2 = map(int, box)
 
-                # Draw bounding box and label
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                label = f"{class_name}: {conf:.2f}"
-                cv2.putText(
-                    frame, label, (x1, max(y1 - 10, 0)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
-                )
+                # Traffic sign logic
+                if class_name.startswith('ts_'):
+                    if conf < self.ts_conf_threshold:
+                        continue
+                    if conf > best_ts_conf:
+                        best_ts_conf = conf
+                        best_ts = (class_name, conf)
 
-                # Track best tl_ and ts_ detection
-                if class_name.startswith('ts_') and conf > best_ts[1]:
-                    best_ts = (class_name, conf)
-                elif class_name.startswith('tl_') and conf > best_tl[1]:
-                    best_tl = (class_name, conf)
+                    # Draw TS bounding box and label
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    label = f"{class_name}: {conf:.2f}"
+                    cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+                # Traffic light logic for each tl_ class separately
+                elif class_name == 'tl_red':
+                    if conf < self.tl_red_threshold:
+                        continue
+                    if conf > best_tl_conf:
+                        best_tl_conf = conf
+                        best_tl = (class_name, conf)
+
+                elif class_name == 'tl_yellow':
+                    if conf < self.tl_yellow_threshold:
+                        continue
+                    if conf > best_tl_conf:
+                        best_tl_conf = conf
+                        best_tl = (class_name, conf)
+
+                elif class_name == 'tl_green':
+                    if conf < self.tl_green_threshold:
+                        continue
+                    if conf > best_tl_conf:
+                        best_tl_conf = conf
+                        best_tl = (class_name, conf)
+
+                # Draw TL bounding box and label if it was any tl_ class
+                if class_name.startswith('tl_') and conf >= 0.01:
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    label = f"{class_name}: {conf:.2f}"
+                    cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
         else:
-            cv2.putText(
-                frame, 'No detection', (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2
-            )
+            cv2.putText(frame, 'No detection', (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
 
-        # Show the frame with overlays
+        # Display
         cv2.imshow(self.window_name, frame)
         cv2.waitKey(1)
 
-        # Publish both messages
+        # Publish results (only class names)
         ts_msg = String(data=best_ts[0])
         tl_msg = String(data=best_tl[0])
         self.publisher_ts.publish(ts_msg)
         self.publisher_tl.publish(tl_msg)
-        #self.get_logger().info(f'Published TS: "{ts_msg.data}", prob "{best_ts[1]}" ')
-        #self.get_logger().info(f'Published TL: "{tl_msg.data}", prob "{best_tl[1]}"')
-
+        self.get_logger().info(f'Published TS: "{ts_msg.data}"')
+        self.get_logger().info(f'Published TL: "{tl_msg.data}"')     
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = TrafficLightDetector()
+    node = TLTSDetector()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -136,7 +231,4 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-        cv2.destroyAllWindows()  # clean up the display window
-
-if __name__ == '__main__':
-    main()
+        cv2.destroyAllWindows()
