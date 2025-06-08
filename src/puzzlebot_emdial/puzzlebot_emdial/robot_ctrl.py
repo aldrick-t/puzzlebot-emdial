@@ -329,6 +329,10 @@ class RobotCtrl(Node):
         '''
         self.line_cmd = msg.data
         
+        if self.line_cmd == None:
+            self.get_logger().warn("Received None line command, setting to 0.0", throttle_duration_sec=10.0)
+            self.line_cmd = 0.0
+        
         self.line_cmd_received = True  # Set flag when message is received
         self.get_logger().debug(f"RECEIVED Line command: {self.line_cmd}", throttle_duration_sec=10.0)
     
@@ -698,15 +702,15 @@ class RobotCtrl(Node):
         # Lost Line detection and recovery
         # Disabled when Intersection is in Approach or Crossing state
         # Check if line is lost, indicated by a command >= abs(1)
-        if not self.approach or not self.crossing or not self.xing:
-            if line_cmd <= -1 :
-                self.get_logger().debug("Lost line detected, spinning to search for the line")
-                # Spin in place: zero linear velocity and fixed turning speed.
-                return 0.0, 0.3  #
-            elif line_cmd >= 1:
-                self.get_logger().debug("Lost line detected, spinning to search for the line")
-                # Spin in place: zero linear velocity and fixed turning speed.
-                return 0.0, -0.3
+        # if not self.approach or not self.crossing or not self.xing:
+        #     if line_cmd <= -1 :
+        #         self.get_logger().debug("Lost line detected, spinning to search for the line")
+        #         # Spin in place: zero linear velocity and fixed turning speed.
+        #         return 0.0, 0.3  #
+        #     elif line_cmd >= 1:
+        #         self.get_logger().debug("Lost line detected, spinning to search for the line")
+        #         # Spin in place: zero linear velocity and fixed turning speed.
+        #         return 0.0, -0.3
         
         # Initialize variables
         self.error_w = line_cmd
