@@ -58,9 +58,14 @@ class LineCmd(Node):
         # Parameter vars
         self.dy_precheck_thresh = self.get_parameter('dy_precheck_thresh').get_parameter_value().double_value
         
+
         # Flags
         self.cross_in_fov = False
         self.cross_in_prox = False
+
+        # Last Line Cmd
+        self.last_cmd_msg = 0.0
+
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
@@ -143,18 +148,20 @@ class LineCmd(Node):
         line_recogni_data = msg.data
         # Process line command
         cmd_msg = self.process_line_cmd(process_img_data, line_recogni_data)
+
+        # Check lost line before crossing
+        if ((-0.5 < self.last_cmd_msg < 0.5) and (-1.0 > cmd_msg > 1.0)):
+            self.get_logger().info("Center Line before crossing!!!")
+            cmd_msg_t = Float32()
+            cmd_msg_t.data = None
+            self.line_cmd_pub.publish(cmd_msg_t)
+            return
+        
+        # Store current command for next round
+        self.last_cmd_msg = cmd_msg
+
         # Publish command message
-        cmd_msg = cmd_msg.data
-        if cmd_msg > 1.1:
-            cmd_msg -= int(cmd_msg)
-            cmd_msg = 1.0 - cmd_msg
-            cmd_msg *= -1.0
-        elif cmd_msg < -1.1:
-            cmd_msg += int(cmd_msg) * -1.0
-            cmd_msg = 1.0 + cmd_msg
-        cmd_msg_t = Float32()
-        cmd_msg_t.data = cmd_msg
-        self.line_cmd_pub.publish(cmd_msg_t)
+        self.line_cmd_pub.publish(cmd_msg)
         
     def timer_process_cb(self):
         '''
