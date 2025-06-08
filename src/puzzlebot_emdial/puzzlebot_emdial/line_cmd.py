@@ -151,16 +151,15 @@ class LineCmd(Node):
         cmd_msg = self.process_line_cmd(process_img_data, line_recogni_data)
 
         # Check lost line before crossing
-        if ((-0.5 < self.last_cmd_msg < 0.5) and (-1.0 > cmd_msg > 1.0)):
+        if ((-0.5 < self.last_cmd_msg < 0.5) and (cmd_msg.data == -1.0)):
             self.get_logger().info("Center Line before crossing!!!")
             cmd_msg_t = Float32()
-            cmd_msg_t.data = None
             self.lost_line = True
-            self.line_cmd_pub.publish(cmd_msg_t)
+             # Store current command for next round
+            self.last_cmd_msg = cmd_msg.data
             return
         
-        # Store current command for next round
-        self.last_cmd_msg = cmd_msg
+       
 
         # Publish command message
         self.line_cmd_pub.publish(cmd_msg)
@@ -279,7 +278,10 @@ class LineCmd(Node):
             self.cy_filtered = cy_sorted[valid_idxs]
         
         # Check number of centroids detected
-        if len(self.cx_filtered) > 4:
+        if len(cx_array) < 4:
+            self.get_logger().info("NOT NOT NOT NOT NOT Crossing detected!", throttle_duration_sec=0.5)
+            self.get_logger().info(f"CX_FILTERED: {int(len(cx_array))}")
+        if len(cx_array) >= 4:
             self.get_logger().info("Crossing detected!", throttle_duration_sec=0.5)
             self.cross_in_fov = True
             # Use filtered cy values for delta y check
@@ -304,10 +306,12 @@ class LineCmd(Node):
                 self.get_logger().info("Crossing no longer in view, Assuming WITHIN Crossing", throttle_duration_sec=2.0)
                 self.cross_in_fov = False
                 cross_msg.data = "within"
+                self.cross_detect_pub.publish(cross_msg)
             else:
                 self.get_logger().info("No crossing detected.", throttle_duration_sec=2.0)
                 self.cross_in_fov = False
                 cross_msg.data = "none"
+                self.cross_detect_pub.publish(cross_msg)
             
                 
             
