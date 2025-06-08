@@ -59,9 +59,9 @@ class RobotCtrl(Node):
         self.declare_parameter('Ki_v', 0.0)
         self.declare_parameter('Kd_v', 0.0)
         # PID for angular control
-        self.declare_parameter('Kp_w', 0.8) #2.0    #1.4
-        self.declare_parameter('Ki_w', 0.1) #1.2    #1.9
-        self.declare_parameter('Kd_w', 0.005) #0.5   #0.09
+        self.declare_parameter('Kp_w', 0.5) #2.0    #1.4
+        self.declare_parameter('Ki_w', 0.0) #1.2    #1.9
+        self.declare_parameter('Kd_w', 0.00) #0.5   #0.09
         # Max speed dynamic parameters
         self.declare_parameter('v_limit', 0.15)
         self.declare_parameter('w_limit', 1.0)
@@ -80,6 +80,8 @@ class RobotCtrl(Node):
         self.declare_parameter('detect_tl', True)
         # Traffic sign detection toggle
         self.declare_parameter('detect_ts', True)
+        # Cancel path trigger
+        self.declare_parameter('cancel_path', False)
         # Curve detect threshhold
         self.declare_parameter('curve_detect_thresh', 0.3)
         # Parameter Callback
@@ -129,6 +131,8 @@ class RobotCtrl(Node):
         self.detect_tl = self.get_parameter('detect_tl').value
         # Traffic sign detection toggle
         self.detect_ts = self.get_parameter('detect_ts').value
+        # Cancel Path trig
+        self.cancel_path_toggle = self.get_parameter('cancel_path').value
         
         # Init traffic light message var
         self.traffic_light = None
@@ -254,6 +258,12 @@ class RobotCtrl(Node):
                     self.get_logger().info("Traffic sign detection ENABLED")
                 else:
                     self.get_logger().info("Traffic sign detection DISABLED")
+            elif param.name == 'cancel_path':
+                self.cancel_path_toggle = param.value
+                if self.cancel_path_toggle:
+                    self.get_logger().info("Cancel Path TRIGGERED")
+                else:
+                    self.get_logger().info("Cancel Path UNTRIGGERED")
             elif param.name == 'Kp_v':
                 self.Kp_v = param.value
                 self.get_logger().info(f"Kp_v set to {param.value}")
@@ -587,7 +597,7 @@ class RobotCtrl(Node):
             return
         
         # If line command is zero cancel path and stop
-        if self.line_cmd == 0.0 and self.crossing:
+        if self.cancel_path_toggle:
             self.cancel_path()
             return
         
