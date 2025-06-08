@@ -596,6 +596,10 @@ class RobotCtrl(Node):
                 self.approach = False
                 self.xing = False
                 self.crossing = True
+                
+            self.cmd_vel.linear.x = 0.0
+            self.cmd_vel.angular.z = 0.0
+            self.cmd_vel_pub.publish(self.cmd_vel)
         
         if self.crossing:
             self.odometry()
@@ -657,7 +661,7 @@ class RobotCtrl(Node):
             return
 
         # Traffic detection enabled: apply traffic light logic
-        if self.tl_red or not self.moving:
+        if self.ts_stop:
             self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
             #self.soft_stop()
             self.cmd_vel.linear.x = 0.0
