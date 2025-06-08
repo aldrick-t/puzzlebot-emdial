@@ -275,9 +275,6 @@ class LineCmd(Node):
             self.cy_filtered = cy_sorted[valid_idxs]
         
         # Check number of centroids detected
-        if len(cx_array) < 4:
-            self.get_logger().info("NOT NOT NOT NOT NOT Crossing detected!", throttle_duration_sec=0.5)
-            self.get_logger().info(f"CX_FILTERED: {int(len(cx_array))}")
         if len(cx_array) >= 4:
             self.get_logger().info("Crossing detected!", throttle_duration_sec=0.5)
             self.cross_in_fov = True

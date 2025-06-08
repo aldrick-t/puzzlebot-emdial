@@ -62,8 +62,8 @@ class LineRecogni(Node):
         # Personalization parameters
         self.declare_parameter('resolution_factor', 1)  # Factor to  scale resolution of the overlay 
         # Contour area parameters
-        self.declare_parameter('min_cnt_area', 100)  # Minimum contour area for mid-range line detection
-        self.declare_parameter('max_cnt_area', 10000)  # Maximum contour area for mid-range line detection
+        self.declare_parameter('min_cnt_area', 5)  # Minimum contour area for mid-range line detection
+        self.declare_parameter('max_cnt_area', 700)  # Maximum contour area for mid-range line detection
         self.declare_parameter('cnt_area_thresh_mode', 'fixed')  # Mode for contour area thresholding
         
         # Parameter Callback
