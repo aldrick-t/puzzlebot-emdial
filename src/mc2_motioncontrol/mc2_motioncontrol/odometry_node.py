@@ -62,7 +62,7 @@ class Odometry(Node):
 
     def wl_cb(self, wl):  
         ## This function receives the left wheel speed from the encoders  
-        self.wl = wl.data 
+        self.wl = wl.data
 
     def wr_cb(self, wr):  
         ## This function receives the right wheel speed from the encoders 
@@ -90,22 +90,15 @@ class Odometry(Node):
         self.robot_pose.y = self.y
         self.robot_pose.theta = self.theta
         self.prev_time_ns = self.get_clock().now().nanoseconds  # Update the previous time
- 
+
 
 def main(args=None): 
-
     rclpy.init(args=args) 
-
     my_node=Odometry() 
-
     rclpy.spin(my_node) 
-
     my_node.destroy_node() 
-
     rclpy.shutdown() 
 
      
-
 if __name__ == '__main__': 
-
     main()

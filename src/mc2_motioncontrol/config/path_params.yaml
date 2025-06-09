@@ -4,9 +4,9 @@ path_generator:
     # For each point: [x, y]
     #path_points: [0.0, 2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0] #square
     #path_points: [1.0, 0.0, 1.5, 0.5, 1.5, -0.5, 1.0, 0.0] #cocktail glass normal
-    path_points: [1.5, 0.5, 1.5, -0.5, 0.0, 0.0, 1.0, 0.0] #cocktail glass alternate
+    #path_points: [1.5, 0.5, 1.5, -0.5, 0.0, 0.0, 1.0, 0.0] #cocktail glass alternate
 
-    path_points: [-1.2, 0.0] # Error validation
+    path_points: [0.23, 0.0, 0.25,0.23] # Error validation
 
 path_control:
   ros__parameters:
