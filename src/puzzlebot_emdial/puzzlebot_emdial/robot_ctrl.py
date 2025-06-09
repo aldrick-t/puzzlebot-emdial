@@ -72,7 +72,7 @@ class RobotCtrl(Node):
         self.declare_parameter('v_limit_max', 0.7)
         self.declare_parameter('w_limit_max', 1.8)
         # Bend minimum speeds
-        self.declare_parameter('v_limit_min', 0.05)
+        self.declare_parameter('v_limit_min', 0.1)
         self.declare_parameter('w_limit_min', 0.1)
         # Activation parameter
         self.declare_parameter('ctrl_activate', False)
@@ -409,6 +409,9 @@ class RobotCtrl(Node):
             self.approach = False
             self.crossing = False
             self.current_goal_index = -1
+            self.tl_green = True
+            self.tl_red = False
+            self.tl_yellow = False
         else:
             self.xg = self.path[self.current_goal_index] # Goal position x[m]
             self.yg = self.path[self.current_goal_index + 1] # Goal position y[m]
@@ -620,7 +623,12 @@ class RobotCtrl(Node):
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
                 return
-
+            if self.tl_yellow:
+                self.get_logger().info("Traffic light Yellow, stopping robot.", throttle_duration_sec=1.0)
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.cmd_vel_pub.publish(self.cmd_vel)
+                return
                 
         if self.crossing:
             self.odometry()
@@ -640,7 +648,7 @@ class RobotCtrl(Node):
             if elapsed_secs <= 10.0:
                 self.stoppin_flag = True
             else:
-                self.ts_work = False
+                self.ts_stop = False
                 self.stoppin_flag = False
                 self.ts_stop_time = None
                 self.get_logger().info("STOOP: 10 Seconds ELAPSED")
