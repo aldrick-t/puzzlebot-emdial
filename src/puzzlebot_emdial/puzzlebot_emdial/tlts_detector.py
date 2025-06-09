@@ -80,11 +80,6 @@ class TLTSDetector(Node):
             '/traffic_sign',
             10
         )
-        self.tlts_overlay_pub = self.create_publisher(
-            Image,
-            '/tlts_overlay',
-            10
-        )
 
         # Load custom-trained YOLOv8 model
         self.model = YOLO('./src/puzzlebot_emdial/models/jun5_v8v8_e_uni_tlts.pt')
@@ -213,9 +208,9 @@ class TLTSDetector(Node):
             cv2.putText(frame, 'No detection', (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
 
-        # Publish image with detection results
-        tlts_overlay_image = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
-        self.tlts_overlay_pub.publish(tlts_overlay_image)
+        # Display
+        cv2.imshow(self.window_name, frame)
+        cv2.waitKey(1)
 
         # Publish results (only class names)
         ts_msg = String(data=best_ts[0])
