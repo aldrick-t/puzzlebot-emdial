@@ -50,7 +50,7 @@ class LineRecogni(Node):
     
         # Parameters immutable after startup sequence
         # Video source (determined by launch mode)
-        self.declare_parameter('camera_topic', 'video_source/raw')
+        self.declare_parameter('camera_topic', 'tlts_overlay')
         
         # Dynamic parameters
         # Logging level
@@ -65,6 +65,7 @@ class LineRecogni(Node):
         self.declare_parameter('min_cnt_area', 5)  # Minimum contour area for mid-range line detection
         self.declare_parameter('max_cnt_area', 700)  # Maximum contour area for mid-range line detection
         self.declare_parameter('cnt_area_thresh_mode', 'fixed')  # Mode for contour area thresholding
+        self.declare_parameter('overlay_mode', 'color')  # Mode for overlay visualization
         
         # Parameter Callback
         self.add_on_set_parameters_callback(self.parameter_callback)
@@ -77,6 +78,7 @@ class LineRecogni(Node):
         self.min_cnt_area = self.get_parameter('min_cnt_area').value
         self.max_cnt_area = self.get_parameter('max_cnt_area').value
         self.cnt_area_thresh_mode = self.get_parameter('cnt_area_thresh_mode').value
+        self.overlay_mode = self.get_parameter('overlay_mode').value
         
         # Program variables
         self.prox_c_height = None  # Proximal cropped image height
@@ -134,6 +136,12 @@ class LineRecogni(Node):
                     return SetParametersResult(successful=False, reason="Invalid contour area threshold mode")
                 self.cnt_area_thresh_mode = param.value
                 self.get_logger().info(f"Contour area threshold mode set to {self.cnt_area_thresh_mode}")
+            elif param.name == 'overlay_mode':
+                if param.value not in ['color', 'binary']:
+                    self.get_logger().error(f"Invalid overlay mode: {param.value}. Must be 'color' or 'binary'.")
+                    return SetParametersResult(successful=False, reason="Invalid overlay mode")
+                self.overlay_mode = param.value
+                self.get_logger().info(f"Overlay mode set to {self.overlay_mode}")
         
         return SetParametersResult(successful=True)
     
@@ -152,7 +160,14 @@ class LineRecogni(Node):
         # CV preprocessing
         cv_preprocessed_fullframe = self.preprocess_fullframe(cv_raw)
         
-        overlay_image = cv_preprocessed_fullframe.copy()
+        if self.overlay_mode == 'color':
+            # Create an overlay image in color
+            overlay_image = cv_raw.copy()
+        elif self.overlay_mode == 'binary':
+            # Create an overlay image in grayscale
+            overlay_image = cv_preprocessed_fullframe.copy()
+            # Convert to BGR for colorful overlay
+    
         overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_GRAY2BGR)
         
         prox_image, prox_overlay_image, prox_centroid_x = self.process_proximal_line(cv_preprocessed_fullframe, overlay_image)
