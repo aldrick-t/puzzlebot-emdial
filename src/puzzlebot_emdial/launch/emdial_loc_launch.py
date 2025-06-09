@@ -42,11 +42,11 @@ def generate_launch_description():
             executable='tlts_detector',
             name='tlts_detector',
             parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',}, config_cv]
+                         'camera_topic': 'video_source/raw',}]
         )
     
     return LaunchDescription([
-        # visual_monitor,
+        visual_monitor,
         #trafficlight_recogni,
         tlts_detector,
     ])

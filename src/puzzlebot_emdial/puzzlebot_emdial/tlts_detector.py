@@ -15,8 +15,8 @@ class TLTSDetector(Node):
         self.bridge = CvBridge()
 
         # Create a named window for display
-        self.window_name = 'Traffic Light Detection'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # self.window_name = 'Traffic Light Detection'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
         # Declare parameters for detection thresholds
         self.declare_parameter('ts_conf_threshold', 0.78)  # Traffic sign confidence threshold

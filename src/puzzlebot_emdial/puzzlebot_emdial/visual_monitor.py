@@ -22,8 +22,7 @@ class VisualMonitor(Node):
 
         # Set up logging at DEBUG level
         self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
-        self.logger = self.get_logger()
-        self.logger.info('VisualMonitor Starting Initialization...')
+        self.get_logger().info('VisualMonitor Starting Initialization...')
 
         # Declare and read parameters
         self.declare_parameter('camera_topic', 'video_source/raw')
@@ -35,7 +34,7 @@ class VisualMonitor(Node):
 
         # Timer to update display
         self.timer = self.create_timer(0.05, self.timer_cb)
-        self.logger.info('VisualMonitor Initialized!')
+        self.get_logger().info('VisualMonitor Initialized!')
 
     def img1_cb(self, msg: Image):
         self.img1 = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -58,7 +57,7 @@ class VisualMonitor(Node):
             labels.append('Grayscale')
         
         if not streams:
-            self.logger.warning('No image streams available to display')
+            self.get_logger().warning('No image streams available to display')
             return
 
         # Determine cell size based on max dimensions
@@ -117,15 +116,15 @@ class VisualMonitor(Node):
         try:
             self.display_streams()
         except Exception as e:
-            self.logger.error(f'Error displaying streams: {e}')
+            self.get_logger().error(f'Error displaying streams: {e}')
 
     def wait_for_ros_time(self):
-        self.logger.info('Waiting for ROS time to become active...')
+        self.get_logger().info('Waiting for ROS time to become active...')
         while rclpy.ok():
             if self.get_clock().now().nanoseconds > 0:
                 break
             rclpy.spin_once(self, timeout_sec=0.1)
-        self.logger.info('ROS time is active!')
+        self.get_logger().info('ROS time is active!')
 
 
 def main(args=None):
