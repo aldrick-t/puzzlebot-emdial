@@ -502,7 +502,7 @@ class RobotCtrl(Node):
         if 'tl_red' in colors:
             self.tl_red = True
             self.tl_yellow = False
-            self.tl_green = False
+            #self.tl_green = False
             self.moving = False
         elif 'tl_yellow' in colors:
             self.tl_yellow = True
