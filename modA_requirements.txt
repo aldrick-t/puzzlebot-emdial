@@ -301,7 +301,7 @@ theora-image-transport==2.5.3
 toml==0.10.2
 tomli==2.2.1
 topic-monitor==0.20.5
-torch==2.7.0
+torch==2.7.1
 torchvision==0.22.0
 tqdm==4.67.1
 trajectory-msgs==4.8.0
