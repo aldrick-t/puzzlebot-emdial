@@ -472,6 +472,8 @@ class RobotCtrl(Node):
                 #limit the linear velocity to a maximum of 0.2 m/s
                 if self.cmd_vel.linear.x > 0.2:
                     self.cmd_vel.linear.x = 0.2
+                if self.cmd_vel.linear.x < 0.1:
+                    self.cmd_vel.linear.x = 0.1
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s", throttle_duration_sec=1.0)
 
                 self.cmd_vel.angular.z = 1.2 * etheta
@@ -617,6 +619,7 @@ class RobotCtrl(Node):
                 self.approach = False
                 self.xing = False
                 self.crossing = True
+                return
             if self.tl_red:
                 self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
                 self.cmd_vel.linear.x = 0.0
