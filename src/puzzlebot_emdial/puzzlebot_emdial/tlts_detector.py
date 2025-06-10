@@ -19,9 +19,9 @@ class TLTSDetector(Node):
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
         # Declare parameters for detection thresholds
-        self.declare_parameter('ts_conf_threshold', 0.78)  # Traffic sign confidence threshold
-        self.declare_parameter('tl_green_threshold', 0.68)  # Traffic light confidence threshold
-        self.declare_parameter('tl_yellow_threshold', 0.15)  # Traffic light yellow confidence threshold
+        self.declare_parameter('ts_conf_threshold', 0.61)  # Traffic sign confidence threshold
+        self.declare_parameter('tl_green_threshold', 0.6)  # Traffic light confidence threshold
+        self.declare_parameter('tl_yellow_threshold', 0.2)  # Traffic light yellow confidence threshold
         self.declare_parameter('tl_red_threshold', 0.45)  # Traffic light yellow confidence threshold
 
         

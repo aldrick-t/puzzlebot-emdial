@@ -1,0 +1,52 @@
+robot_ctrl:
+  ros__parameters:
+    # Logging
+    log_severity: "DEBUG"
+    
+    # Input topic
+    cmd_input_topic: "line_cmd"
+
+    # Velocity PID gains
+    Kp_v: 0.0
+    Ki_v: 0.0
+    Kd_v: 0.0
+
+    # Angular PID gains
+    Kp_w: 0.58
+    Ki_w: 0.0
+    Kd_w: 0.00
+
+    # Speed limits
+    v_limit: 0.15
+    w_limit: 1.0
+    v_limit_slow: 0.05
+    w_limit_slow: 1.0
+    v_limit_max: 0.7
+    w_limit_max: 1.8
+    v_limit_min: 0.1
+    w_limit_min: 0.1
+
+    # Activation and toggles
+    ctrl_activate: false
+    detect_tl: true
+    detect_ts: true
+    cancel_path: false
+
+    # Curve detection
+    curve_detect_thresh: 0.3
+
+    # Preset Path - Left Turn
+    pathL_1: 0.20
+    pathL_2: 0.0
+    pathL_3: 0.31
+    pathL_4: 0.20
+
+    # Preset Path - Right Turn
+    pathR_1: 0.23
+    pathR_2: 0.0
+    pathR_3: 0.31
+    pathR_4: -0.20
+
+    # Preset Path - Straight
+    pathS_1: 0.40
+    pathS_2: 0.0

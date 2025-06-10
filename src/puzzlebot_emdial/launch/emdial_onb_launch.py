@@ -33,6 +33,12 @@ def generate_launch_description():
         'config',
         'path_params.yaml'
     )
+
+    config_robot_ctrl = os.path.join(
+        package_directory,
+        'config',
+        'robot_ctrl_params.yaml'
+    )
     
 
     
@@ -54,7 +60,7 @@ def generate_launch_description():
             package='puzzlebot_emdial',
             executable='robot_ctrl',
             name='robot_ctrl',
-            parameters=[{'use_sim_time': False}, config_ctrl]
+            parameters=[{'use_sim_time': False}, config_robot_ctrl]
         )
     
     x_odometry_node = Node(
