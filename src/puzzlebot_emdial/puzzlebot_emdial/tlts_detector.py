@@ -88,16 +88,16 @@ class TLTSDetector(Node):
         for param in params:
             if param.name == 'tl_green_threshold':
                 self.tl_green_threshold = param.value
-                self.get_logger().info(f'Traffic light green threshold set to {self.tl_green_threshold}')
+                self.get_logger().info(f'Traffic light green threshold set to {self.tl_green_threshold}', throttle_duration_sec=1.0)
             elif param.name == 'tl_yellow_threshold':
                 self.tl_yellow_threshold = param.value
-                self.get_logger().info(f'Traffic light yellow threshold set to {self.tl_yellow_threshold}')
+                self.get_logger().info(f'Traffic light yellow threshold set to {self.tl_yellow_threshold}', throttle_duration_sec=1.0)
             elif param.name == 'tl_red_threshold':
                 self.tl_red_threshold = param.value
-                self.get_logger().info(f'Traffic light red threshold set to {self.tl_red_threshold}')
+                self.get_logger().info(f'Traffic light red threshold set to {self.tl_red_threshold}', throttle_duration_sec=1.0)
             elif param.name == 'ts_conf_threshold':
                 self.ts_conf_threshold = param.value
-                self.get_logger().info(f'Traffic sign confidence threshold set to {self.ts_conf_threshold}')
+                self.get_logger().info(f'Traffic sign confidence threshold set to {self.ts_conf_threshold}', throttle_duration_sec=1.0)
 
         
         return SetParametersResult(successful=True)
@@ -188,8 +188,8 @@ class TLTSDetector(Node):
         tl_msg = String(data=best_tl[0])
         self.publisher_ts.publish(ts_msg)
         self.publisher_tl.publish(tl_msg)
-        self.get_logger().info(f'Published TS: "{ts_msg.data}"')
-        self.get_logger().info(f'Published TL: "{tl_msg.data}"')     
+        self.get_logger().info(f'Published TS: "{ts_msg.data}"', throttle_duration_sec=1.0)
+        self.get_logger().info(f'Published TL: "{tl_msg.data}"', throttle_duration_sec=1.0)     
 
 
 def main(args=None):

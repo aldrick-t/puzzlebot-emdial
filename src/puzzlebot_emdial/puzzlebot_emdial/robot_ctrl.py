@@ -476,7 +476,7 @@ class RobotCtrl(Node):
                     self.cmd_vel.linear.x = 0.1
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s", throttle_duration_sec=1.0)
 
-                self.cmd_vel.angular.z = 1.2 * etheta
+                self.cmd_vel.angular.z = 1.0 * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s", throttle_duration_sec=1.0)
                 if self.cmd_vel.angular.z > 1.2:
                     self.cmd_vel.angular.z = 1.2
@@ -503,8 +503,8 @@ class RobotCtrl(Node):
         # set flags based on which colors are present
         if 'tl_red' in colors:
             self.tl_red = True
-            self.tl_yellow = False
-            #self.tl_green = False
+            #self.tl_yellow = False
+            self.tl_green = False
             self.moving = False
         elif 'tl_yellow' in colors:
             self.tl_yellow = True
