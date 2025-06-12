@@ -36,16 +36,16 @@ robot_ctrl:
     curve_detect_thresh: 0.3
 
     # Preset Path - Left Turn
-    pathL_1: 0.20
+    pathL_1: 0.16
     pathL_2: 0.0
-    pathL_3: 0.31
+    pathL_3: 0.28
     pathL_4: 0.20
 
     # Preset Path - Right Turn
-    pathR_1: 0.19
+    pathR_1: 0.16
     pathR_2: 0.0
-    pathR_3: 0.31
-    pathR_4: -0.20
+    pathR_3: 0.27
+    pathR_4: -0.18
 
     # Preset Path - Straight
     pathS_1: 0.40
