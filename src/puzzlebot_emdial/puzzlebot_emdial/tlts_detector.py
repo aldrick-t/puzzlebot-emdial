@@ -19,11 +19,10 @@ class TLTSDetector(Node):
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
         # Declare parameters for detection thresholds
-        self.declare_parameter('ts_conf_threshold', 0.78)  # Traffic sign confidence threshold
-        self.declare_parameter('tl_green_threshold', 0.68)  # Traffic light confidence threshold
-        self.declare_parameter('tl_yellow_threshold', 0.15)  # Traffic light yellow confidence threshold
+        self.declare_parameter('ts_conf_threshold', 0.62)  # Traffic sign confidence threshold
+        self.declare_parameter('tl_green_threshold', 0.6)  # Traffic light confidence threshold
+        self.declare_parameter('tl_yellow_threshold', 0.2)  # Traffic light yellow confidence threshold
         self.declare_parameter('tl_red_threshold', 0.45)  # Traffic light yellow confidence threshold
-
 
         
         self.ts_conf_threshold = self.get_parameter('ts_conf_threshold').get_parameter_value().double_value
@@ -31,35 +30,10 @@ class TLTSDetector(Node):
         self.tl_yellow_threshold = self.get_parameter('tl_yellow_threshold').get_parameter_value().double_value
         self.tl_red_threshold = self.get_parameter('tl_red_threshold').get_parameter_value().double_value
 
-        
-        # Bias Parameters for score calculation
-        self.declare_parameter('bias_brightness', 0.4)
-        self.declare_parameter('bias_size', 0.5)
-        self.declare_parameter('bias_position', 0.1)
 
-        self.biases = [0.0,0.0,0.0]
-        
-        # Load biases from parameters
-        self.biases[0] = self.get_parameter('bias_brightness').get_parameter_value().double_value
-        self.biases[1] = self.get_parameter('bias_size').get_parameter_value().double_value
-        self.biases[2] = self.get_parameter('bias_position').get_parameter_value().double_value
-        # Ensure biases sum to 1
-        total_bias = sum(self.biases)
-        if total_bias != 1.0:
-            self.get_logger().warn(f'Biases do not sum to 1: {total_bias}. Normalizing biases.')
-            for key in self.biases:
-                self.biases[key] /= total_bias
-        else:
-            self.get_logger().info(f'Biases initialized: {self.biases}')
         
         self.add_on_set_parameters_callback(self.parameter_callback)
 
-        # Biases for score calculation (sum must equal 1)
-        self.biases = {
-            'brightness': 0.4,
-            'size': 0.5,
-            'position': 0.1
-        }
 
         # Subscribe to camera feed
         self.create_subscription(
@@ -117,22 +91,19 @@ class TLTSDetector(Node):
         
     def parameter_callback(self, params):
         for param in params:
-            if param.name == 'tl_conf_threshold':
-                self.tl_conf_threshold = param.value
-                self.get_logger().info(f'Traffic light confidence threshold set to {self.tl_conf_threshold}')
+            if param.name == 'tl_green_threshold':
+                self.tl_green_threshold = param.value
+                self.get_logger().info(f'Traffic light green threshold set to {self.tl_green_threshold}')
+            elif param.name == 'tl_yellow_threshold':
+                self.tl_yellow_threshold = param.value
+                self.get_logger().info(f'Traffic light yellow threshold set to {self.tl_yellow_threshold}')
+            elif param.name == 'tl_red_threshold':
+                self.tl_red_threshold = param.value
+                self.get_logger().info(f'Traffic light red threshold set to {self.tl_red_threshold}')
             elif param.name == 'ts_conf_threshold':
                 self.ts_conf_threshold = param.value
                 self.get_logger().info(f'Traffic sign confidence threshold set to {self.ts_conf_threshold}')
-            elif param.name in self.biases:
-                self.biases[param.name] = param.value
-                self.get_logger().info(f'Bias {param.name} set to {self.biases[param.name]}')
-        
-        # Normalize biases if they do not sum to 1
-        total_bias = sum(self.biases.values())
-        if total_bias != 1.0:
-            for key in self.biases:
-                self.biases[key] /= total_bias
-            self.get_logger().warn(f'Biases normalized: {self.biases}')
+
         
         return SetParametersResult(successful=True)
     

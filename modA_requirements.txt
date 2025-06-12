@@ -211,7 +211,7 @@ rcl-interfaces==1.2.1
 rclpy==3.3.16
 rcutils==5.1.6
 reportlab==4.4.1
-requests==2.32.2
+requests==2.32.4
 requests-toolbelt==0.9.1
 resource-retriever==3.1.3
 rmw-dds-common==1.6.0
@@ -301,7 +301,7 @@ theora-image-transport==2.5.3
 toml==0.10.2
 tomli==2.2.1
 topic-monitor==0.20.5
-torch==2.7.0
+torch==2.7.1
 torchvision==0.22.0
 tqdm==4.67.1
 trajectory-msgs==4.8.0
