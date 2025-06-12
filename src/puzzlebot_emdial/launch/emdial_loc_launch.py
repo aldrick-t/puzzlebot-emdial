@@ -52,7 +52,7 @@ def generate_launch_description():
         )
     
     return LaunchDescription([
-        visual_monitor,
+        #visual_monitor,
         #trafficlight_recogni,
         tlts_detector,
     ])
