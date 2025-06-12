@@ -152,7 +152,7 @@ class LineCmd(Node):
 
         # Check lost line before crossing
         if line_recogni_data == 1500:
-            self.get_logger().info("Center Line before crossing!!!")
+            self.get_logger().info("Center Line before crossing!!!",throttle_duration_sec=1.0)
             self.lost_line = True
             return
         

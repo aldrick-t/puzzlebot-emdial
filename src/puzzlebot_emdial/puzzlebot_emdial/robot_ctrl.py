@@ -93,7 +93,7 @@ class RobotCtrl(Node):
         self.declare_parameter('pathL_3', 0.31)
         self.declare_parameter('pathL_4', 0.20)
         # Right Turn Path
-        self.declare_parameter('pathR_1', 0.23)
+        self.declare_parameter('pathR_1', 0.20)
         self.declare_parameter('pathR_2', 0.0)
         self.declare_parameter('pathR_3', 0.31)
         self.declare_parameter('pathR_4', -0.20)
@@ -472,9 +472,11 @@ class RobotCtrl(Node):
                 #limit the linear velocity to a maximum of 0.2 m/s
                 if self.cmd_vel.linear.x > 0.2:
                     self.cmd_vel.linear.x = 0.2
+                if self.cmd_vel.linear.x < 0.1:
+                    self.cmd_vel.linear.x = 0.1
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s", throttle_duration_sec=1.0)
 
-                self.cmd_vel.angular.z = 1.2 * etheta
+                self.cmd_vel.angular.z = 1.0 * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s", throttle_duration_sec=1.0)
                 if self.cmd_vel.angular.z > 1.2:
                     self.cmd_vel.angular.z = 1.2
