@@ -476,7 +476,7 @@ class RobotCtrl(Node):
                     self.cmd_vel.linear.x = 0.1
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s", throttle_duration_sec=1.0)
 
-                self.cmd_vel.angular.z = 1.0 * etheta
+                self.cmd_vel.angular.z = 1.2 * etheta
                 self.get_logger().debug(f"Angular velocity: {self.cmd_vel.angular.z:.2f} rad/s", throttle_duration_sec=1.0)
                 if self.cmd_vel.angular.z > 1.2:
                     self.cmd_vel.angular.z = 1.2
@@ -616,18 +616,27 @@ class RobotCtrl(Node):
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
+                cross_msg = String()
+                cross_msg.data = "reset"
+                self.reset_odom_pub.publish(cross_msg)
                 self.approach = False
                 self.xing = False
                 self.crossing = True
                 return
             if self.tl_red:
                 self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
+                cross_msg = String()
+                cross_msg.data = "reset"
+                self.reset_odom_pub.publish(cross_msg)
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
                 return
             if self.tl_yellow:
                 self.get_logger().info("Traffic light Yellow, stopping robot.", throttle_duration_sec=1.0)
+                cross_msg = String()
+                cross_msg.data = "reset"
+                self.reset_odom_pub.publish(cross_msg)
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
