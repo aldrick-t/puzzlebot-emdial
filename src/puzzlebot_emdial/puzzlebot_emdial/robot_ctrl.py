@@ -93,7 +93,7 @@ class RobotCtrl(Node):
         self.declare_parameter('pathL_3', 0.31)
         self.declare_parameter('pathL_4', 0.20)
         # Right Turn Path
-        self.declare_parameter('pathR_1', 0.23)
+        self.declare_parameter('pathR_1', 0.20)
         self.declare_parameter('pathR_2', 0.0)
         self.declare_parameter('pathR_3', 0.31)
         self.declare_parameter('pathR_4', -0.20)

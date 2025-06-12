@@ -42,7 +42,7 @@ robot_ctrl:
     pathL_4: 0.20
 
     # Preset Path - Right Turn
-    pathR_1: 0.23
+    pathR_1: 0.19
     pathR_2: 0.0
     pathR_3: 0.31
     pathR_4: -0.20
