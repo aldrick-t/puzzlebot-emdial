@@ -35,13 +35,13 @@ def generate_launch_description():
         'tlts_params.yaml'
     )
     
-    visual_monitor = Node(
-            package='puzzlebot_emdial',
-            executable='visual_monitor',
-            name='visual_monitor',
-            parameters=[{'use_sim_time': False,
-                         'camera_topic': 'video_source/raw',}]
-        )
+    # visual_monitor = Node(
+    #         package='puzzlebot_emdial',
+    #         executable='visual_monitor',
+    #         name='visual_monitor',
+    #         parameters=[{'use_sim_time': False,
+    #                      'camera_topic': 'video_source/raw',}]
+    #     )
     
     tlts_detector = Node(
             package='puzzlebot_emdial',
@@ -52,7 +52,7 @@ def generate_launch_description():
         )
     
     return LaunchDescription([
-        visual_monitor,
+        #visual_monitor,
         #trafficlight_recogni,
         tlts_detector,
     ])

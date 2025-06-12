@@ -613,9 +613,6 @@ class RobotCtrl(Node):
         if self.xing and self.approach and not self.crossing:
             if self.tl_green:
                 #Stop motors before odometry
-                self.cmd_vel.linear.x = 0.0
-                self.cmd_vel.angular.z = 0.0
-                self.cmd_vel_pub.publish(self.cmd_vel)
                 self.approach = False
                 self.xing = False
                 self.crossing = True

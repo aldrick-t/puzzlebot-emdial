@@ -1,6 +1,11 @@
 tlts_detector:
   ros__parameters:
-    ts_conf_threshold: 0.61         # Traffic sign confidence threshold
-    tl_green_threshold: 0.6         # Traffic light green confidence threshold
-    tl_yellow_threshold: 0.2        # Traffic light yellow confidence threshold
+    tl_green_threshold: 0.55         # Traffic light green confidence threshold
+    tl_yellow_threshold: 0.25        # Traffic light yellow confidence threshold
     tl_red_threshold: 0.45          # Traffic light red confidence threshold
+    ts_conf_giveway : 0.81
+    ts_conf_left : 0.8
+    ts_conf_right : 0.4
+    ts_conf_stop : 0.78
+    ts_conf_straight : 0.75
+    ts_conf_work : 0.78
