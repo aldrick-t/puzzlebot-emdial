@@ -12,7 +12,9 @@ Developed by *Team Emdial*.
   - [Requirements for any package in the repository](#requirements-for-any-package-in-the-repository)
   - [Local machine Installation](#local-machine-installation)
     - [Installing the *puzzlebot\_emdial **package*** from ***Repo as WS***](#installing-the-puzzlebot_emdial-package-from-repo-as-ws)
+    - [Installing the *puzzlebot\_emdial **package*** as a Package in an **existing WS**](#installing-the-puzzlebot_emdial-package-as-a-package-in-an-existing-ws)
   - [Puzzlebot Installation](#puzzlebot-installation)
+  - [Executing the *puzzlebot_emdial **package***](#executing-the-puzzlebot_emdial-package)
     - [Installing the *puzzlebot\_emdial **package*** in the Puzzlebot](#installing-the-puzzlebot_emdial-package-in-the-puzzlebot)
     - [Launching in ONBOARD MODE (Recommended)](#launching-in-onboard-mode-recommended)
       - [Launching Nodes for Local Machine](#launching-nodes-for-local-machine)
@@ -142,7 +144,7 @@ To **Install** the *`puzzlebot_emdial` **package***, follow these steps:
     source install/setup.bash
     ```
 
-### Installing the *puzzlebot_emdial **package*** as a Package in an existing WS
+### Installing the *puzzlebot_emdial **package*** as a Package in an **existing WS**
 
 If you already have a suitable ROS2 workspace and want to add the *`puzzlebot_emdial` **package*** to it, follow these steps:
 
