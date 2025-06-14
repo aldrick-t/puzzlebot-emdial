@@ -1,14 +1,14 @@
 # Puzzlebot Emdial Guide
 
 Usage and Installation Guide.  
-For ***v1.2.1 Release***. June 14, 2025  
+For ***v1.2.2 Release***. June 14, 2025  
 Developed by *Team Emdial*.
 
 ## Index
 
 - [Puzzlebot Emdial Guide](#puzzlebot-emdial-guide)
   - [Index](#index)
-  - [v1.2.1 Release Contents](#v121-release-contents)
+  - [v1.2.2 Release Contents](#v122-release-contents)
   - [Requirements for any package in the repository](#requirements-for-any-package-in-the-repository)
   - [Local machine Installation](#local-machine-installation)
     - [Installing the *puzzlebot\_emdial **package*** from ***Repo as WS***](#installing-the-puzzlebot_emdial-package-from-repo-as-ws)
@@ -26,7 +26,7 @@ Developed by *Team Emdial*.
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
 
-## v1.2.1 Release Contents
+## v1.2.2 Release Contents
 
 The *puzzlebot_emdial **repository*** contains all packages developed for each Minichallenge, final challenge and extra tools. The repository is structured as follows:
 
