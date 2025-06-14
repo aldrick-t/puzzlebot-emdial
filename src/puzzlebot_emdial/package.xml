@@ -2,10 +2,10 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>puzzlebot_emdial</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <version>1.2.1</version>
+  <description>Puzzlebot EMDIAL package for ROS2</description>
   <maintainer email="taldrick@gmail.com">atad</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT License</license>
 
   <depend>rclpy</depend>
 

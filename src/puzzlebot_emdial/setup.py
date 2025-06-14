@@ -5,7 +5,7 @@ package_name = 'puzzlebot_emdial'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='1.2.1',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -18,8 +18,8 @@ setup(
     zip_safe=True,
     maintainer='atad',
     maintainer_email='taldrick@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Puzzlebot EMDIAL package for ROS2',
+    license='MIT License',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
