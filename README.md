@@ -6,23 +6,23 @@ Developed by *Team Emdial*.
 
 ## Index
 
-- [v1.2.1 Release Contents](#v121-release-contents)
-- [Requirements for any package in the repository](#requirements-for-any-package-in-the-repository)
-- [Local machine Installation](#local-machine-installation)
-  - [Installing the *puzzlebot_emdial **package*** from ***Repo as WS***](#installing-the-puzzlebot_emdial-package-from-repo-as-ws)
-  - [Installing the *puzzlebot_emdial **package*** as a Package in an existing WS](#installing-the-puzzlebot_emdial-package-as-a-package-in-an-existing-ws)
-- [Puzzlebot Installation](#puzzlebot-installation)
-  - [Installing the *puzzlebot_emdial **package*** in the Puzzlebot](#installing-the-puzzlebot_emdial-package-in-the-puzzlebot)
-- [Executing the *puzzlebot_emdial **package***](#executing-the-puzzlebot_emdial-package)
-  - [Launching in ONBOARD MODE (Recommended)](#launching-in-onboard-mode-recommended)
-    - [Launching Nodes for Local Machine](#launching-nodes-for-local-machine)
-    - [Launching Nodes directly on the Puzzlebot](#launching-nodes-directly-on-the-puzzlebot)
-  - [Launching in REMOTE MODE](#launching-in-remote-mode)
-  - [Launching in SIMULATION MODE](#launching-in-simulation-mode)
-  - [Execution Examples (Screenshots)](#execution-examples-screenshots)
-- [Known Issues](#known-issues)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
+- [Puzzlebot Emdial Guide](#puzzlebot-emdial-guide)
+  - [Index](#index)
+  - [v1.2.1 Release Contents](#v121-release-contents)
+  - [Requirements for any package in the repository](#requirements-for-any-package-in-the-repository)
+  - [Local machine Installation](#local-machine-installation)
+    - [Installing the *puzzlebot\_emdial **package*** from ***Repo as WS***](#installing-the-puzzlebot_emdial-package-from-repo-as-ws)
+  - [Puzzlebot Installation](#puzzlebot-installation)
+    - [Installing the *puzzlebot\_emdial **package*** in the Puzzlebot](#installing-the-puzzlebot_emdial-package-in-the-puzzlebot)
+    - [Launching in ONBOARD MODE (Recommended)](#launching-in-onboard-mode-recommended)
+      - [Launching Nodes for Local Machine](#launching-nodes-for-local-machine)
+      - [Launching Nodes directly on the Puzzlebot](#launching-nodes-directly-on-the-puzzlebot)
+    - [Launching in REMOTE MODE](#launching-in-remote-mode)
+    - [Launching in SIMULATION MODE](#launching-in-simulation-mode)
+    - [Execution Examples (Screenshots)](#execution-examples-screenshots)
+  - [Known Issues](#known-issues)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
 
 ## v1.2.1 Release Contents
 
@@ -46,6 +46,7 @@ puzzlebot_emdial/
 ├── train/
 ├── data/
 ├── models/
+├── extra/
 ├── .gitignore
 ├── manual_ejecucion.md
 ├── README.md
@@ -64,6 +65,9 @@ To run any package in the *`puzzlebot_emdial` **repository***, you need to have 
 
 2. **Python 3.10**:
    The packages in this repository are compatible with Python 3.10. Make sure you have it installed. (other versions may work, but they are not tested)
+
+3. **Ubuntu 22.04**:
+   The packages are developed and tested on Ubuntu 22.04. While they may work on other versions, it is recommended to use Ubuntu 22.04 for compatibility. Any architecture is supported.
 
 ## Local machine Installation
 
@@ -159,6 +163,7 @@ If you already have a suitable ROS2 workspace and want to add the *`puzzlebot_em
 To run the Final Challenge package, it also needs to exist within the `src` folder of a ros2 workspace within the Puzzlebot.
 
 ### Installing the *puzzlebot_emdial **package*** in the Puzzlebot
+
 1. **Remotely connect to the Puzzlebot**:
 
    Use SSH or any other remote connection method to access the Puzzlebot directories.
@@ -196,20 +201,34 @@ To run the Final Challenge package, it also needs to exist within the `src` fold
 6. **Source the workspace**:
 
     After building, source the workspace to make the packages available:
-    
+
     ```bash
     source install/setup.bash
     ```
 
 ## Executing the *puzzlebot_emdial **package***
 
-Prior to executing any of the launch modes, make sure you have sourced the workspace where the *`puzzlebot_emdial` **package*** is installed. This can be done by running:
+Prior to executing any of the launch modes, make sure you have sourced the workspace where the *`puzzlebot_emdial` **package*** is installed. This can be done by running the following when inside your workspace directory:
 
 ```bash
 source /install/setup.bash
 ```
 
-When inside your workspace directory.
+>**Important**: In ANY mode, it is **NECESSARY** to activate the System with a live parameter change. Its **HIGHLY RECOMMENDED**  to use `rqt_reconfigure`:
+>
+>```bash
+>ros2 run rqt_reconfigure rqt_reconfigure
+>```
+>
+> This tool allows the user to change the `ctrl_activate` parameter to `true` in the `robot_ctrl` node, which is necessary for the Puzzlebot to start moving.
+>
+> If you do not use `rqt_reconfigure`, you can also change the parameter manually using the following command (not tested):
+>
+>```bash
+>ros2 param set /robot_ctrl ctrl_activate true
+>```
+>
+> Also, many parameters can be changed for all nodes in the package using `rqt_reconfigure` to play around and test different configurations, the base configurations are presaved in the `config` folder of the package and loaded each time when the package is launched.
 
 ### Launching in ONBOARD MODE (Recommended)
 
@@ -253,7 +272,7 @@ To run the *`puzzlebot_emdial` **package*** in simulation mode, use the followin
 ros2 launch puzzlebot_emdial emdial_sim_launch.py
 ```
 
-For Simulation mode, you need to have the `puzzlebot_gazebo` package installed and sourced in your workspace as well as the `puzzlebot_description` package. 
+For Simulation mode, you need to have the `puzzlebot_gazebo` package installed and sourced in your workspace as well as the `puzzlebot_description` package.
 
 If all prerequisites are met, this command will launch the Gazebo simulation environment with the Puzzlebot model in a testing environment.
 
@@ -267,20 +286,25 @@ ros2 launch puzzlebot_gazebo gazebo_example_launch.py
 
 Some examples of the package running in ONBOARD MODE.
 
+![Execution Example 1](extra/exec2.png)
+![Execution Example 2](extra/exec1.png)
+
 ## Known Issues
+
 See the [Issues page](https://github.com/aldrick-t/puzzlebot-emdial/issues) on GitHub for known issues and troubleshooting.
 
 Open an issue if you find a bug or have a feature request. The team will review it and respond as soon as possible.
 
 ## License
+
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgements
+
 This project is developed by *Team Emdial* in solution of the *Puzzlebot Challenge by MCR2*.
 
 Team Emdial, 2025  
 
 @aldrick-t  
 @diegoquezadaco  
-@EmanuelVegaGlz 
-
+@EmanuelVegaGlz
