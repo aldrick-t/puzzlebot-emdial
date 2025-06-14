@@ -15,20 +15,30 @@ class TLTSDetector(Node):
         self.bridge = CvBridge()
 
         # Create a named window for display
-        self.window_name = 'Traffic Light Detection'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # self.window_name = 'Traffic Light Detection'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         
         # Declare parameters for detection thresholds
-        self.declare_parameter('ts_conf_threshold', 0.78)  # Traffic sign confidence threshold
-        self.declare_parameter('tl_green_threshold', 0.68)  # Traffic light confidence threshold
-        self.declare_parameter('tl_yellow_threshold', 0.15)  # Traffic light yellow confidence threshold
+        self.declare_parameter('tl_green_threshold', 0.6)  # Traffic light confidence threshold
+        self.declare_parameter('tl_yellow_threshold', 0.25)  # Traffic light yellow confidence threshold
         self.declare_parameter('tl_red_threshold', 0.45)  # Traffic light yellow confidence threshold
+        self.declare_parameter('ts_conf_stop', 0.78)  # Traffic sign stop confidence threshold
+        self.declare_parameter('ts_conf_giveway', 0.78)  # Traffic sign giveway confidence threshold
+        self.declare_parameter('ts_conf_left', 0.8)
+        self.declare_parameter('ts_conf_right', 0.4)  # Traffic sign right confidence threshold
+        self.declare_parameter('ts_conf_straight', 0.75)
+        self.declare_parameter('ts_conf_work', 0.78)  # Traffic sign work confidence threshold
 
         
-        self.ts_conf_threshold = self.get_parameter('ts_conf_threshold').get_parameter_value().double_value
         self.tl_green_threshold = self.get_parameter('tl_green_threshold').get_parameter_value().double_value
         self.tl_yellow_threshold = self.get_parameter('tl_yellow_threshold').get_parameter_value().double_value
         self.tl_red_threshold = self.get_parameter('tl_red_threshold').get_parameter_value().double_value
+        self.ts_conf_stop = self.get_parameter('ts_conf_stop').get_parameter_value().double_value
+        self.ts_conf_giveway = self.get_parameter('ts_conf_giveway').get_parameter_value().double_value
+        self.ts_conf_left = self.get_parameter('ts_conf_left').get_parameter_value().double_value
+        self.ts_conf_right = self.get_parameter('ts_conf_right').get_parameter_value().double_value
+        self.ts_conf_straight = self.get_parameter('ts_conf_straight').get_parameter_value().double_value
+        self.ts_conf_work = self.get_parameter('ts_conf_work').get_parameter_value().double_value
 
 
         
@@ -52,6 +62,11 @@ class TLTSDetector(Node):
         self.publisher_ts = self.create_publisher(
             String,
             '/traffic_sign',
+            10
+        )
+        self.tlts_overlay_pub = self.create_publisher(
+            Image,
+            '/tlts_overlay',
             10
         )
 
@@ -88,16 +103,32 @@ class TLTSDetector(Node):
         for param in params:
             if param.name == 'tl_green_threshold':
                 self.tl_green_threshold = param.value
-                self.get_logger().info(f'Traffic light green threshold set to {self.tl_green_threshold}')
+                self.get_logger().info(f'Traffic light green threshold set to {self.tl_green_threshold}', throttle_duration_sec=1.0)
             elif param.name == 'tl_yellow_threshold':
                 self.tl_yellow_threshold = param.value
-                self.get_logger().info(f'Traffic light yellow threshold set to {self.tl_yellow_threshold}')
+                self.get_logger().info(f'Traffic light yellow threshold set to {self.tl_yellow_threshold}', throttle_duration_sec=1.0)
             elif param.name == 'tl_red_threshold':
                 self.tl_red_threshold = param.value
                 self.get_logger().info(f'Traffic light red threshold set to {self.tl_red_threshold}')
-            elif param.name == 'ts_conf_threshold':
-                self.ts_conf_threshold = param.value
-                self.get_logger().info(f'Traffic sign confidence threshold set to {self.ts_conf_threshold}')
+            elif param.name == 'ts_conf_stop':
+                self.ts_conf_stop = param.value
+                self.get_logger().info(f'Traffic sign stop threshold set to {self.ts_conf_stop}')
+            elif param.name == 'ts_conf_giveway':
+                self.ts_conf_giveway = param.value
+                self.get_logger().info(f'Traffic sign giveway threshold set to {self.ts_conf_giveway}')
+            elif param.name == 'ts_conf_left':
+                self.ts_conf_left = param.value
+                self.get_logger().info(f'Traffic sign left threshold set to {self.ts_conf_left}')
+            elif param.name == 'ts_conf_right':
+                self.ts_conf_right = param.value
+                self.get_logger().info(f'Traffic sign right threshold set to {self.ts_conf_right}')
+            elif param.name == 'ts_conf_straight':
+                self.ts_conf_straight = param.value
+                self.get_logger().info(f'Traffic sign straight threshold set to {self.ts_conf_straight}')
+            elif param.name == 'ts_conf_work':
+                self.ts_conf_work = param.value
+                self.get_logger().info(f'Traffic sign work threshold set to {self.ts_conf_work}')
+            
 
         
         return SetParametersResult(successful=True)
@@ -133,21 +164,45 @@ class TLTSDetector(Node):
                 x1, y1, x2, y2 = map(int, box)
 
                 # Traffic sign logic
-                if class_name.startswith('ts_'):
-                    if conf < self.ts_conf_threshold:
+                if class_name == 'ts_stop':
+                    if conf < self.ts_conf_stop:
+                        continue
+                    if conf > best_ts_conf:
+                        best_ts_conf = conf
+                        best_ts = (class_name, conf)
+                elif class_name == 'ts_giveway':
+                    if conf < self.ts_conf_giveway:
+                        continue
+                    if conf > best_ts_conf:
+                        best_ts_conf = conf
+                        best_ts = (class_name, conf)
+                elif class_name == 'ts_left':
+                    if conf < self.ts_conf_left:
+                        continue
+                    if conf > best_ts_conf:
+                        best_ts_conf = conf
+                        best_ts = (class_name, conf)
+                elif class_name == 'ts_right':
+                    if conf < self.ts_conf_right:
+                        continue
+                    if conf > best_ts_conf:
+                        best_ts_conf = conf
+                        best_ts = (class_name, conf)
+                elif class_name == 'ts_straight':
+                    if conf < self.ts_conf_straight:
+                        continue
+                    if conf > best_ts_conf:
+                        best_ts_conf = conf
+                        best_ts = (class_name, conf)
+                elif class_name == 'ts_work':
+                    if conf < self.ts_conf_work:
                         continue
                     if conf > best_ts_conf:
                         best_ts_conf = conf
                         best_ts = (class_name, conf)
 
-                    # Draw TS bounding box and label
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    label = f"{class_name}: {conf:.2f}"
-                    cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
                 # Traffic light logic for each tl_ class separately
-                elif class_name == 'tl_red':
+                if class_name == 'tl_red':
                     if conf < self.tl_red_threshold:
                         continue
                     if conf > best_tl_conf:
@@ -169,7 +224,7 @@ class TLTSDetector(Node):
                         best_tl = (class_name, conf)
 
                 # Draw TL bounding box and label if it was any tl_ class
-                if class_name.startswith('tl_') and conf >= 0.01:
+                if conf >= 0.1:
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                     label = f"{class_name}: {conf:.2f}"
                     cv2.putText(frame, label, (x1, max(y1 - 10, 0)),
@@ -179,17 +234,17 @@ class TLTSDetector(Node):
             cv2.putText(frame, 'No detection', (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
 
-        # Display
-        cv2.imshow(self.window_name, frame)
-        cv2.waitKey(1)
+        # Publish image with detection results
+        tlts_overlay_image = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
+        self.tlts_overlay_pub.publish(tlts_overlay_image)
 
         # Publish results (only class names)
         ts_msg = String(data=best_ts[0])
         tl_msg = String(data=best_tl[0])
         self.publisher_ts.publish(ts_msg)
         self.publisher_tl.publish(tl_msg)
-        self.get_logger().info(f'Published TS: "{ts_msg.data}"')
-        self.get_logger().info(f'Published TL: "{tl_msg.data}"')     
+        self.get_logger().info(f'Published TS: "{ts_msg.data}"', throttle_duration_sec=1.0)
+        self.get_logger().info(f'Published TL: "{tl_msg.data}"', throttle_duration_sec=1.0)     
 
 
 def main(args=None):

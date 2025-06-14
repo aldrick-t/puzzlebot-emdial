@@ -93,9 +93,9 @@ class RobotCtrl(Node):
         self.declare_parameter('pathL_3', 0.31)
         self.declare_parameter('pathL_4', 0.20)
         # Right Turn Path
-        self.declare_parameter('pathR_1', 0.23)
+        self.declare_parameter('pathR_1', 0.20)
         self.declare_parameter('pathR_2', 0.0)
-        self.declare_parameter('pathR_3', 0.33)
+        self.declare_parameter('pathR_3', 0.31)
         self.declare_parameter('pathR_4', -0.20)
         # Straight Path
         self.declare_parameter('pathS_1', 0.40)
@@ -472,6 +472,8 @@ class RobotCtrl(Node):
                 #limit the linear velocity to a maximum of 0.2 m/s
                 if self.cmd_vel.linear.x > 0.2:
                     self.cmd_vel.linear.x = 0.2
+                if self.cmd_vel.linear.x < 0.1:
+                    self.cmd_vel.linear.x = 0.1
                 self.get_logger().debug(f"Linear velocity: {self.cmd_vel.linear.x:.2f} m/s", throttle_duration_sec=1.0)
 
                 self.cmd_vel.angular.z = 1.2 * etheta
@@ -501,7 +503,7 @@ class RobotCtrl(Node):
         # set flags based on which colors are present
         if 'tl_red' in colors:
             self.tl_red = True
-            self.tl_yellow = False
+            #self.tl_yellow = False
             self.tl_green = False
             self.moving = False
         elif 'tl_yellow' in colors:
@@ -614,17 +616,27 @@ class RobotCtrl(Node):
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
+                cross_msg = String()
+                cross_msg.data = "reset"
+                self.reset_odom_pub.publish(cross_msg)
                 self.approach = False
                 self.xing = False
                 self.crossing = True
+                return
             if self.tl_red:
                 self.get_logger().info("Traffic light RED, stopping robot.", throttle_duration_sec=1.0)
+                cross_msg = String()
+                cross_msg.data = "reset"
+                self.reset_odom_pub.publish(cross_msg)
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
                 return
             if self.tl_yellow:
                 self.get_logger().info("Traffic light Yellow, stopping robot.", throttle_duration_sec=1.0)
+                cross_msg = String()
+                cross_msg.data = "reset"
+                self.reset_odom_pub.publish(cross_msg)
                 self.cmd_vel.linear.x = 0.0
                 self.cmd_vel.angular.z = 0.0
                 self.cmd_vel_pub.publish(self.cmd_vel)
